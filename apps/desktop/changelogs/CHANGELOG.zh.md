@@ -3,6 +3,15 @@
 本页只记录你能直接感知到的更新，不展开技术实现细节。
 完整发布记录请查看 [GitHub Releases](https://github.com/nexmoe/VidBee/releases)。
 
+## [v1.3.8](https://github.com/nexmoe/VidBee/releases/tag/v1.3.8) - 2026-04-06
+### Bug 修复
+- 强化数据库迁移，旧版本安装升级更可靠。
+- FFmpeg 等可选工具缺失或初始化失败时，不再阻塞应用启动。
+- 订阅检查在遇到常见网络或订阅源格式问题时，减少无效错误上报。
+
+### 改进
+- 优化 GlitchTip 反馈与错误上报细节。
+
 ## [v1.3.7](https://github.com/nexmoe/VidBee/releases/tag/v1.3.7) - 2026-03-29
 ### Bug 修复
 - 改进文件名清理逻辑，正确处理特殊 Unicode 字符和控制符。

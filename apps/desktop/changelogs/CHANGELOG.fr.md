@@ -3,6 +3,15 @@
 Cette page ne présente que les évolutions visibles par les utilisateurs, sans détails techniques.
 Pour les notes de version complètes, consultez [GitHub Releases](https://github.com/nexmoe/VidBee/releases).
 
+## [v1.3.8](https://github.com/nexmoe/VidBee/releases/tag/v1.3.8) - 2026-04-06
+### Corrections de bugs
+- Migrations de base de donnees plus robustes pour les anciennes installations.
+- Des outils optionnels comme FFmpeg ne bloquent plus le demarrage lorsqu'ils sont absents ou echouent a l'initialisation.
+- Les verifications d'abonnement reduisent les rapports d'erreur bruyants pour les problemes reseau ou de format de flux courants.
+
+### Ameliorations
+- Affinage des retours GlitchTip et des details de rapport d'erreurs.
+
 ## [v1.3.7](https://github.com/nexmoe/VidBee/releases/tag/v1.3.7) - 2026-03-29
 ### Corrections de bugs
 - Amelioration de la sanitisation des noms de fichiers pour gerer les caracteres Unicode speciaux et les codes de controle.
