@@ -308,7 +308,7 @@ export const defaultSettings: AppSettings = {
   betaProgram: false,
   language: defaultLanguageCode,
   theme: 'system',
-  oneClickDownload: false,
+  oneClickDownload: true,
   oneClickDownloadType: 'video',
   oneClickQuality: 'best',
   closeToTray: true,

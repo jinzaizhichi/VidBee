@@ -829,7 +829,7 @@ export function DownloadItem({ download, isSelected = false, onToggleSelect }: D
     <ContextMenu onOpenChange={setIsContextMenuOpen}>
       <ContextMenuTrigger asChild>
         <button
-          className={`group relative w-full max-w-full overflow-hidden px-6 py-2 transition-colors ${
+          className={`group relative w-full max-w-full overflow-hidden px-6 py-2 text-left transition-colors ${
             isSelectedHistory || isContextMenuOpen ? 'bg-primary/10' : ''
           }`}
           onDoubleClick={() => {

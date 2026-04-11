@@ -50,7 +50,7 @@ export const defaultWebSettings: WebAppSettings = {
 	betaProgram: false,
 	language: defaultLanguageCode,
 	theme: "system",
-	oneClickDownload: false,
+	oneClickDownload: true,
 	oneClickDownloadType: "video",
 	oneClickQuality: "best",
 	closeToTray: true,

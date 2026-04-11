@@ -14,7 +14,7 @@ export interface WebDownloadSettings {
 }
 
 export const DEFAULT_WEB_DOWNLOAD_SETTINGS: WebDownloadSettings = {
-	oneClickDownload: false,
+	oneClickDownload: true,
 	oneClickDownloadType: "video",
 	oneClickQuality: "best",
 };
