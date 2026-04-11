@@ -12,7 +12,10 @@ import { settingsManager } from '../settings'
 import { downloadEngine } from './download-engine'
 import { addMainBreadcrumb, captureMainException } from './glitchtip'
 import { historyManager } from './history-manager'
-import { shouldCaptureSubscriptionCheckError } from './subscription-error-utils'
+import {
+  getSubscriptionCheckErrorMessage,
+  shouldCaptureSubscriptionCheckError
+} from './subscription-error-utils'
 import { subscriptionManager } from './subscription-manager'
 
 const logger = log.scope('subscriptions')
@@ -296,14 +299,14 @@ export class SubscriptionScheduler extends EventEmitter {
             : subscription.sourceUrl
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown RSS error'
+      const message = getSubscriptionCheckErrorMessage(error)
       subscriptionManager.update(subscription.id, {
         status: 'failed',
         lastError: message,
         lastCheckedAt: Date.now()
       })
       logger.error('Subscription check failed:', { id: subscription.id, error })
-      if (shouldCaptureSubscriptionCheckError(message)) {
+      if (shouldCaptureSubscriptionCheckError(error)) {
         captureMainException(error, {
           extra: {
             feedUrl: subscription.feedUrl,

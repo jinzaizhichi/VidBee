@@ -97,11 +97,11 @@ class FfmpegManager {
           'FFMPEG_PATH does not exist. Provide a directory containing ffmpeg and ffprobe.'
         )
       }
-      const stats = fs.statSync(envPath)
-      if (!stats.isDirectory()) {
-        throw new Error('FFMPEG_PATH must be a directory containing ffmpeg and ffprobe.')
-      }
-      const resolved = resolveBundledFfmpeg(envPath, 'ffmpeg from FFMPEG_PATH directory')
+
+      // Sentry issue VIDBEE-1IS showed some users point FFMPEG_PATH at the
+      // binary itself instead of its parent directory. Accept both forms.
+      const resolvedEnvDir = this.resolveEnvFfmpegDirectory(envPath, ffmpegFileName)
+      const resolved = resolveBundledFfmpeg(resolvedEnvDir, 'ffmpeg from FFMPEG_PATH')
       if (resolved) {
         return resolved
       }
@@ -155,6 +155,24 @@ class FfmpegManager {
 
     throw new Error(
       'ffmpeg/ffprobe not found. Bundle them under resources/ffmpeg/ in the build output or set FFMPEG_PATH to a directory containing both.'
+    )
+  }
+
+  /**
+   * Normalize FFMPEG_PATH to the directory that should contain both binaries.
+   */
+  private resolveEnvFfmpegDirectory(envPath: string, ffmpegFileName: string): string {
+    const stats = fs.statSync(envPath)
+    if (stats.isDirectory()) {
+      return envPath
+    }
+
+    if (path.basename(envPath) === ffmpegFileName) {
+      return path.dirname(envPath)
+    }
+
+    throw new Error(
+      'FFMPEG_PATH must be a directory containing ffmpeg and ffprobe or the ffmpeg binary path.'
     )
   }
 }
