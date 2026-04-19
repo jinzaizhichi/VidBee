@@ -4,17 +4,24 @@ import os from 'node:os'
 import path from 'node:path'
 import type YTDlpWrap from 'yt-dlp-wrap-plus'
 import { scopedLoggers } from '../utils/logger'
+import { resolveBundledResourcesPath } from './bundled-resources-path'
 
 // Use require for yt-dlp-wrap-plus to handle CommonJS/ESM compatibility
 const YTDlpWrapModule = require('yt-dlp-wrap-plus')
 const YTDlpWrapCtor: typeof YTDlpWrap = YTDlpWrapModule.default || YTDlpWrapModule
 type YTDlpWrapInstance = InstanceType<typeof YTDlpWrapCtor>
 
+/**
+ * Manage the packaged yt-dlp binary used by the desktop download engine.
+ */
 class YtDlpManager {
   private ytdlpPath: string | null = null
   private ytdlpInstance: YTDlpWrapInstance | null = null
   private jsRuntimeArgs: string[] = []
 
+  /**
+   * Resolve and cache the packaged yt-dlp executable.
+   */
   async initialize(): Promise<void> {
     this.ytdlpPath = this.resolveBundledYtDlp()
     this.ytdlpInstance = new YTDlpWrapCtor(this.ytdlpPath)
@@ -22,6 +29,9 @@ class YtDlpManager {
     scopedLoggers.engine.info('yt-dlp initialized at:', this.ytdlpPath)
   }
 
+  /**
+   * Return the initialized yt-dlp wrapper instance.
+   */
   getInstance(): YTDlpWrapInstance {
     if (!this.ytdlpInstance) {
       throw new Error('yt-dlp not initialized. Call initialize() first.')
@@ -29,6 +39,9 @@ class YtDlpManager {
     return this.ytdlpInstance
   }
 
+  /**
+   * Return the resolved yt-dlp binary path.
+   */
   getPath(): string {
     if (!this.ytdlpPath) {
       throw new Error('yt-dlp not initialized. Call initialize() first.')
@@ -36,23 +49,23 @@ class YtDlpManager {
     return this.ytdlpPath
   }
 
+  /**
+   * Return extra JS runtime arguments for yt-dlp.
+   */
   getJsRuntimeArgs(): string[] {
     return [...this.jsRuntimeArgs]
   }
 
+  /**
+   * Resolve the resources directory used by packaged desktop binaries.
+   */
   private getResourcesPath(): string {
-    // In development, read from project root's resources
-    if (process.env.NODE_ENV === 'development') {
-      return path.join(process.cwd(), 'resources')
-    }
-    // In production, resources may be bundled under app.asar.unpacked or extraResources.
-    const asarUnpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'resources')
-    if (fs.existsSync(asarUnpackedPath)) {
-      return asarUnpackedPath
-    }
-    return path.join(process.resourcesPath, 'resources')
+    return resolveBundledResourcesPath(['yt-dlp.exe', 'yt-dlp_macos', 'yt-dlp_linux'])
   }
 
+  /**
+   * Locate the packaged yt-dlp executable for the active platform.
+   */
   private resolveBundledYtDlp(): string {
     const platform = os.platform()
     let bundledName: string
@@ -70,6 +83,9 @@ class YtDlpManager {
     const resourcesPath = this.getResourcesPath()
     const bundledPath = path.join(resourcesPath, bundledName)
     if (fs.existsSync(bundledPath)) {
+      // Sentry issue VIDBEE-1OM showed packaged Windows builds could resolve
+      // to `resources/resources/yt-dlp.exe` even though extraResources were
+      // copied directly into `process.resourcesPath`.
       scopedLoggers.engine.info('Using bundled yt-dlp:', bundledPath)
       // Make executable on Unix-like systems if needed
       if (platform !== 'win32') {
@@ -87,6 +103,9 @@ class YtDlpManager {
     throw new Error(message)
   }
 
+  /**
+   * Resolve optional JS runtime flags used by yt-dlp.
+   */
   private resolveJsRuntimeArgs(): string[] {
     const runtime = (process.env.YTDLP_JS_RUNTIME || 'deno').trim()
     if (!runtime || runtime === 'none') {
@@ -111,6 +130,9 @@ class YtDlpManager {
     return process.env.YTDLP_JS_RUNTIME ? ['--js-runtimes', runtime] : []
   }
 
+  /**
+   * Resolve a JS runtime binary from environment, bundled assets, or PATH.
+   */
   private resolveJsRuntimePath(runtime: string): string | null {
     const envPath = process.env.YTDLP_JS_RUNTIME_PATH?.trim()
     if (envPath && fs.existsSync(envPath)) {

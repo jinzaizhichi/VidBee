@@ -251,10 +251,20 @@ export function createWindow(): void {
   mainWindow.on('closed', () => {
     mainWindow = null
     isRendererReady = false
+    applyDockVisibility(settingsManager.get('hideDockIcon'))
+  })
+
+  mainWindow.on('show', () => {
+    applyDockVisibility(settingsManager.get('hideDockIcon'))
+  })
+
+  mainWindow.on('hide', () => {
+    applyDockVisibility(settingsManager.get('hideDockIcon'))
   })
 
   mainWindow.on('ready-to-show', () => {
     if (shouldStartHidden) {
+      applyDockVisibility(settingsManager.get('hideDockIcon'))
       return
     }
     mainWindow?.show()
@@ -688,7 +698,6 @@ app.whenReady().then(async () => {
 
   await startExtensionApiServer()
 
-  applyDockVisibility(settingsManager.get('hideDockIcon'))
   applyAutoLaunchSetting(settingsManager.get('launchAtLogin'))
 
   createWindow()

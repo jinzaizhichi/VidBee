@@ -12,6 +12,7 @@ import https from 'node:https'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { YTDLP_PLATFORM_ASSETS } from './ytdlp-assets.js'
 
 // Configuration
 const currentFilePath = fileURLToPath(import.meta.url)
@@ -27,10 +28,7 @@ const GITHUB_TOKEN =
 // Platform configuration
 const PLATFORM_CONFIG = {
   win32: {
-    ytdlp: {
-      asset: 'yt-dlp.exe',
-      output: 'yt-dlp.exe'
-    },
+    ytdlp: YTDLP_PLATFORM_ASSETS.win32,
     ffmpeg: {
       url: 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip',
       innerPath: 'ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe',
@@ -46,10 +44,7 @@ const PLATFORM_CONFIG = {
     }
   },
   darwin: {
-    ytdlp: {
-      asset: 'yt-dlp_macos',
-      output: 'yt-dlp_macos'
-    },
+    ytdlp: YTDLP_PLATFORM_ASSETS.darwin,
     ffmpeg: {
       // For development, download only the architecture matching current system
       arm64: {
@@ -79,10 +74,7 @@ const PLATFORM_CONFIG = {
     }
   },
   linux: {
-    ytdlp: {
-      asset: 'yt-dlp',
-      output: 'yt-dlp_linux'
-    },
+    ytdlp: YTDLP_PLATFORM_ASSETS.linux,
     ffmpeg: {
       url: 'https://github.com/yt-dlp/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz',
       innerPath: 'ffmpeg-master-latest-linux64-gpl/bin/ffmpeg',

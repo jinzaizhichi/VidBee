@@ -4,6 +4,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { buildFilePathCandidates } from '../../../shared/utils/download-file'
+import { getDownloadErrorGuidance } from '../lib/download-error-guidance'
 import { ipcEvents, ipcServices } from '../lib/ipc'
 import {
   addDownloadAtom,
@@ -158,7 +159,7 @@ export function useDownloadEvents() {
       }
       const errorMessage = typeof data?.error === 'string' ? data.error : ''
       updateDownload({ id, changes: { status: 'error', error: errorMessage } })
-      toast.error(t('notifications.downloadFailed'))
+      toast.error(getDownloadErrorGuidance(errorMessage) ?? t('notifications.downloadFailed'))
       void syncHistoryItem(id)
     }
 

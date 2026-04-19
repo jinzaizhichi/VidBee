@@ -17,6 +17,7 @@ import { FolderOpen, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { resolveDownloadTargetUrl } from '../../lib/download-url'
 import { ipcEvents, ipcServices } from '../../lib/ipc'
 import { addDownloadAtom } from '../../store/downloads'
 import { loadSettingsAtom, saveSettingAtom, settingsAtom } from '../../store/settings'
@@ -579,6 +580,15 @@ export function DownloadDialog({
       return
     }
 
+    const downloadTargetUrl = resolveDownloadTargetUrl({
+      fallbackUrl: url,
+      webpageUrl: videoInfo.webpage_url
+    })
+    if (!downloadTargetUrl) {
+      toast.error(t('errors.invalidUrl'))
+      return
+    }
+
     const type = singleVideoState.activeTab
     const selectedFormat =
       type === 'video' ? singleVideoState.selectedVideoFormat : singleVideoState.selectedAudioFormat
@@ -589,7 +599,7 @@ export function DownloadDialog({
 
     const downloadItem = {
       id,
-      url: videoInfo.webpage_url || '',
+      url: downloadTargetUrl,
       title: singleVideoState.title || videoInfo.title || t('download.fetchingVideoInfo'),
       thumbnail: videoInfo.thumbnail,
       type,
@@ -612,7 +622,7 @@ export function DownloadDialog({
         : selectedFormat
 
     const options = {
-      url: videoInfo.webpage_url || '',
+      url: downloadTargetUrl,
       type,
       format: resolvedFormat || undefined,
       audioFormat: type === 'video' && isMuxedVideoFormat(selectedVideoFormat) ? '' : undefined,
@@ -632,7 +642,7 @@ export function DownloadDialog({
       console.error('Failed to start download:', error)
       toast.error(t('notifications.downloadFailed'))
     }
-  }, [videoInfo, singleVideoState, addDownload, t])
+  }, [videoInfo, singleVideoState, addDownload, t, url])
 
   // Reset form when dialog closes
   useEffect(() => {

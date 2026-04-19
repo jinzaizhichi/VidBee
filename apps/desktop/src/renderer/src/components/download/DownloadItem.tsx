@@ -44,6 +44,7 @@ import {
   buildFilePathCandidates,
   normalizeSavedFileName
 } from '../../../../shared/utils/download-file'
+import { getDownloadErrorGuidance } from '../../lib/download-error-guidance'
 import { sendGlitchTipFeedback } from '../../lib/glitchtip-feedback'
 import { ipcServices } from '../../lib/ipc'
 import {
@@ -583,6 +584,7 @@ export function DownloadItem({ download, isSelected = false, onToggleSelect }: D
   const selectedFormatSize =
     download.selectedFormat?.filesize || download.selectedFormat?.filesize_approx
   const inlineFileSize = selectedFormatSize ? formatFileSize(selectedFormatSize) : undefined
+  const displayErrorMessage = getDownloadErrorGuidance(download.error) ?? download.error
 
   const formatLabelValue = getFormatLabel(download)
 
@@ -1118,7 +1120,7 @@ export function DownloadItem({ download, isSelected = false, onToggleSelect }: D
               {download.status === 'error' && download.error && (
                 <div className="flex flex-col gap-1.5">
                   <p className="line-clamp-2 w-full overflow-hidden text-destructive text-xs">
-                    {download.error}
+                    {displayErrorMessage}
                   </p>
                   <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
                     <span className="shrink-0 font-medium text-muted-foreground text-xs">

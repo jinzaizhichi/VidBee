@@ -3,7 +3,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { scopedLoggers } from '../utils/logger'
+import { resolveBundledResourcesPath } from './bundled-resources-path'
 
+/**
+ * Manage ffmpeg and ffprobe discovery for packaged and development builds.
+ */
 class FfmpegManager {
   private ffmpegPath: string | null = null
   private initializePromise: Promise<string> | null = null
@@ -54,14 +58,7 @@ class FfmpegManager {
    * Resolves the resources directory for packaged and development builds.
    */
   private getResourcesPath(): string {
-    if (process.env.NODE_ENV === 'development') {
-      return path.join(process.cwd(), 'resources')
-    }
-    const asarUnpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'resources')
-    if (fs.existsSync(asarUnpackedPath)) {
-      return asarUnpackedPath
-    }
-    return path.join(process.resourcesPath, 'resources')
+    return resolveBundledResourcesPath(['ffmpeg'])
   }
 
   /**

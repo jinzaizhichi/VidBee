@@ -64,7 +64,9 @@ export const sendGlitchTipFeedback = async (
     return
   }
 
-  const associatedEventId = options.associatedEventId?.trim()
+  const associatedEventId =
+    options.associatedEventId?.trim() ||
+    BrowserSentry.captureMessage('manual download feedback submitted', 'info')
   if (!associatedEventId) {
     toast.error('GlitchTip feedback needs an associated error event.')
     return
