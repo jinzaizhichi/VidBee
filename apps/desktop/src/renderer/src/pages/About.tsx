@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ipcEvents, ipcServices } from '../lib/ipc'
+import { withDesktopUtm } from '../lib/url'
 import { updateAvailableAtom, updateReadyAtom } from '../store/update'
 
 interface AboutResource {
@@ -107,7 +108,7 @@ export function About() {
   }, [i18n, setUpdateAvailable])
 
   const handleGoToDownload = () => {
-    openShareUrl('https://vidbee.org/download/')
+    openShareUrl(withDesktopUtm('https://vidbee.org/download/'))
   }
 
   const handleRestartToUpdate = () => {
@@ -215,7 +216,7 @@ export function About() {
         label: t('about.resources.website'),
         description: t('about.resources.websiteDescription'),
         actionLabel: t('about.actions.visit'),
-        href: 'https://vidbee.org/'
+        href: withDesktopUtm('https://vidbee.org/')
       }
     ],
     [t]

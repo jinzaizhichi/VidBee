@@ -34,6 +34,7 @@ import { useLocation } from 'react-router'
 import { toast } from 'sonner'
 import { ipcServices } from '../lib/ipc'
 import { logger } from '../lib/logger'
+import { withDesktopUtm } from '../lib/url'
 import { loadSettingsAtom, saveSettingAtom, settingsAtom } from '../store/settings'
 
 export function Settings() {
@@ -124,7 +125,7 @@ export function Settings() {
 
   const handleOpenCookiesGuide = async () => {
     try {
-      await ipcServices.fs.openExternal('https://docs.vidbee.org/cookies')
+      await ipcServices.fs.openExternal(withDesktopUtm('https://docs.vidbee.org/cookies'))
     } catch (error) {
       logger.error('Failed to open cookies guide:', error)
       toast.error(t('settings.openLinkError'))

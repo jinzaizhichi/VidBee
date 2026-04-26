@@ -52,6 +52,10 @@ export const normalizeBrowserCookiesSettingForYtDlp = (value?: string | null): s
     return browser
   }
 
+  if (browser === 'safari') {
+    return 'safari'
+  }
+
   const looksLikePath = profile.includes('/') || profile.includes('\\')
   if (!looksLikePath) {
     return `${browser}:${profile}`
@@ -150,7 +154,8 @@ export const formatYtDlpCommand = (args: string[]): string => {
   return `yt-dlp ${quoted.join(' ')}`
 }
 
-export const resolveFfmpegLocationFromPath = (ffmpegPath: string): string => path.dirname(ffmpegPath)
+export const resolveFfmpegLocationFromPath = (ffmpegPath: string): string =>
+  path.dirname(ffmpegPath)
 
 export const resolveVideoFormatSelector = (options: YtDlpDownloadOptions): string => {
   const format = options.format
@@ -237,7 +242,8 @@ export const buildDownloadArgs = (
   const embedChapters = settings.embedChapters ?? true
   const browserForCookies = normalizeBrowserCookiesSettingForYtDlp(settings.browserForCookies)
   const cookiesPath = trim(settings.cookiesPath)
-  const hasSubtitleAuth = (browserForCookies && browserForCookies !== 'none') || Boolean(cookiesPath)
+  const hasSubtitleAuth =
+    (browserForCookies && browserForCookies !== 'none') || Boolean(cookiesPath)
   const shouldAttemptSubtitles = !isBilibiliUrl(options.url) || hasSubtitleAuth
 
   if (shouldAttemptSubtitles) {

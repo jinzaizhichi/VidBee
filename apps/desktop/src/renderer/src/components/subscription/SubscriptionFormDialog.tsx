@@ -12,6 +12,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Switch } from '@renderer/components/ui/switch'
 import { ipcServices } from '@renderer/lib/ipc'
+import { withDesktopUtm } from '@renderer/lib/url'
 import { cn } from '@renderer/lib/utils'
 import { settingsAtom } from '@renderer/store/settings'
 import { resolveFeedAtom } from '@renderer/store/subscriptions'
@@ -178,7 +179,7 @@ export function SubscriptionFormDialog({
 
   const handleOpenRSSHubDocs = async () => {
     try {
-      await ipcServices.fs.openExternal('https://docs.vidbee.org/rss')
+      await ipcServices.fs.openExternal(withDesktopUtm('https://docs.vidbee.org/rss'))
     } catch (error) {
       console.error('Failed to open RSS documentation:', error)
       toast.error(t('subscriptions.notifications.openLinkError'))

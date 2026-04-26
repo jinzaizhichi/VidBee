@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { ipcServices } from '@renderer/lib/ipc'
 import { getSubscriptionStatusMeta } from '@renderer/lib/subscription-status'
+import { withDesktopUtm } from '@renderer/lib/url'
 import { cn } from '@renderer/lib/utils'
 import { type DownloadRecord, downloadsArrayAtom } from '@renderer/store/downloads'
 import {
@@ -306,7 +307,7 @@ export function Subscriptions() {
 
   const handleOpenRSSHubDocs = useCallback(async () => {
     try {
-      await ipcServices.fs.openExternal('https://docs.vidbee.org/rss')
+      await ipcServices.fs.openExternal(withDesktopUtm('https://docs.vidbee.org/rss'))
     } catch (error) {
       console.error('Failed to open RSS documentation:', error)
       toast.error(t('subscriptions.notifications.openLinkError'))

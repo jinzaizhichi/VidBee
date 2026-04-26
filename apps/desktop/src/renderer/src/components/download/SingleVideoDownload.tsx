@@ -26,6 +26,7 @@ import { sendGlitchTipFeedback } from '../../lib/glitchtip-feedback'
 import { settingsAtom } from '../../store/settings'
 import { useAppInfo } from '../feedback/FeedbackLinks'
 import { pickPreferredAudioFormatId } from './audio-format-preferences'
+import { getDisplayFormats } from './format-presentation'
 
 export interface SingleVideoState {
   title: string
@@ -148,23 +149,6 @@ const FormatList = ({ formats, type, codec, selectedFormat, onFormatChange }: Fo
     [getFileSize]
   )
 
-  const sortAudioFormatsByQuality = useCallback(
-    (a: VideoFormat, b: VideoFormat) => {
-      const aQuality = a.tbr ?? a.quality ?? 0
-      const bQuality = b.tbr ?? b.quality ?? 0
-      if (aQuality !== bQuality) {
-        return bQuality - aQuality
-      }
-      const aHasSize = !!(a.filesize || a.filesize_approx)
-      const bHasSize = !!(b.filesize || b.filesize_approx)
-      if (aHasSize !== bHasSize) {
-        return bHasSize ? 1 : -1
-      }
-      return getFileSize(b) - getFileSize(a)
-    },
-    [getFileSize]
-  )
-
   const pickVideoFormatForPreset = useCallback(
     (presetFormats: VideoFormat[], preset: OneClickQualityPreset): VideoFormat | null => {
       if (presetFormats.length === 0) {
@@ -195,53 +179,11 @@ const FormatList = ({ formats, type, codec, selectedFormat, onFormatChange }: Fo
   )
 
   useEffect(() => {
-    const isVideoFormat = (format: VideoFormat) =>
-      format.video_ext !== 'none' && format.vcodec && format.vcodec !== 'none'
-    const isAudioFormat = (format: VideoFormat) =>
-      format.acodec &&
-      format.acodec !== 'none' &&
-      (format.video_ext === 'none' ||
-        !format.video_ext ||
-        !format.vcodec ||
-        format.vcodec === 'none')
-
-    const videos = formats.filter(isVideoFormat)
-    const audios = formats.filter(isAudioFormat)
-
-    const groupedByHeight = new Map<number, VideoFormat[]>()
-    videos.forEach((format) => {
-      const height = format.height ?? 0
-      const existing = groupedByHeight.get(height) || []
-      existing.push(format)
-      groupedByHeight.set(height, existing)
+    const { videoFormats: finalVideos, audioFormats: finalAudios } = getDisplayFormats({
+      formats,
+      type,
+      codec
     })
-
-    const finalVideos = Array.from(groupedByHeight.values()).map((group) => {
-      return group.sort((a, b) => getFileSize(b) - getFileSize(a))[0]
-    })
-
-    let finalAudios = audios
-
-    if (codec === 'auto' && type === 'audio') {
-      const groupedByQuality = new Map<string, VideoFormat[]>()
-      audios.forEach((format) => {
-        const qualityKey = format.tbr
-          ? `tbr_${format.tbr}`
-          : format.quality
-            ? `quality_${format.quality}`
-            : 'unknown'
-        const existing = groupedByQuality.get(qualityKey) || []
-        existing.push(format)
-        groupedByQuality.set(qualityKey, existing)
-      })
-
-      finalAudios = Array.from(groupedByQuality.values()).map((group) => {
-        return group.sort((a, b) => getFileSize(b) - getFileSize(a))[0]
-      })
-    }
-
-    finalVideos.sort(sortVideoFormatsByQuality)
-    finalAudios.sort(sortAudioFormatsByQuality)
 
     setVideoFormats(finalVideos)
     setAudioFormats(finalAudios)
@@ -284,10 +226,7 @@ const FormatList = ({ formats, type, codec, selectedFormat, onFormatChange }: Fo
     onFormatChange,
     pickVideoFormatForPreset,
     codec,
-    settings.preferredAudioLanguage,
-    getFileSize,
-    sortVideoFormatsByQuality,
-    sortAudioFormatsByQuality
+    settings.preferredAudioLanguage
   ])
 
   const formatSize = (bytes?: number) => {

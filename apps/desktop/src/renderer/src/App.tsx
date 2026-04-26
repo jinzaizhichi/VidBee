@@ -14,6 +14,7 @@ import { useRybbitDailyClientVersion } from './hooks/use-rybbit-daily-client-ver
 import { useRybbitScript } from './hooks/use-rybbit-script'
 import { addRendererBreadcrumb, setRendererTelemetryEnabled } from './lib/glitchtip'
 import { ipcEvents, ipcServices } from './lib/ipc'
+import { withDesktopUtm } from './lib/url'
 import { About } from './pages/About'
 import { Home } from './pages/Home'
 import { Settings } from './pages/Settings'
@@ -64,8 +65,8 @@ function AppContent() {
   const navigate = useNavigate()
   const location = useLocation()
   const currentPage = pathToPage(location.pathname)
-  const supportedSitesUrl = 'https://vidbee.org/supported-sites/'
-  const toolsUrl = 'https://vidbee.org/tools/'
+  const supportedSitesUrl = withDesktopUtm('https://vidbee.org/supported-sites/')
+  const toolsUrl = withDesktopUtm('https://vidbee.org/tools/')
   const analyticsEnabled = settings.enableAnalytics ?? true
   const isRybbitReady = useRybbitScript(analyticsEnabled)
 

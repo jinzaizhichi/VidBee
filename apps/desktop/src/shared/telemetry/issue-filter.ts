@@ -12,37 +12,116 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
   'could not find opera cookies database',
   'opera does not support profiles',
   'custom safari cookies database not found',
+  'opera does not support profiles',
+  'could not find opera cookies database',
   'fresh cookies (not necessarily logged in) are needed',
+  // Sentry issues VIDBEE-4LN through VIDBEE-4N2 showed local socket policy
+  // failures bubbling out of yt-dlp as WinError 10013 noise.
+  'winerror 10013',
+  'an attempt was made to access a socket in a way forbidden by its access permissions',
+  'http error 403: forbidden',
+  // Sentry issue VIDBEE-DE showed Cloudflare can block generic extractor
+  // requests with an anti-bot challenge that requires upstream impersonation.
+  'cloudflare anti-bot challenge',
   "sign in to confirm you're not a bot",
   'sign in to confirm you’re not a bot',
+  // Sentry issues VIDBEE-5FL / VIDBEE-5EN / VIDBEE-5EM showed
+  // age-restricted videos need cookies, not a desktop code fix.
+  'sign in to confirm your age',
   "private video. sign in if you've been granted access",
-  'access restricted',
   'unsupported url',
   'this website is no longer supported since it has been determined to be primarily used for piracy',
   'video unavailable',
+  'access restricted',
   'offline.',
   'requested format is not available',
+  // Sentry issues VIDBEE-41B / VIDBEE-3IH showed Google Drive can reject
+  // downloads for users without source access, which is not a desktop bug.
+  'only the owner and editors can download this file',
+  'did not get any data blocks',
   'no video formats found',
-  'http error 403: forbidden',
-  'http error 429: too many requests',
-  'unable to download video subtitles',
+  'no video could be found in this tweet',
+  'the channel is not currently live',
   'http error 404: not found',
-  'unable to download video data: [ssl: certificate_verify_failed]',
   'unable to extract encoded url',
   'please report this issue on',
+  'got http error 403 when using impersonate target',
+  'unable to download video subtitles',
+  'unable to download video data: [ssl: certificate_verify_failed]',
   'cannot parse data',
-  'cannot download embed-only video without embedding url',
   'requested range not satisfiable',
   'invalid data found when processing input',
+  'decryption failed or bad record mac',
+  'connection aborted.',
+  'forcibly closed by the remote host',
   'unable to rename file',
   "this video has been removed for violating youtube's community guidelines",
-  'postprocessing: ffmpeg not found. please install or provide the path using --ffmpeg-location',
-  'postprocessing: ffprobe not found. please install or provide the path using --ffmpeg-location',
+  'file name too long',
+  // Sentry issues VIDBEE-3PO / VIDBEE-VK showed local disk exhaustion can
+  // abort writes after the download already succeeded remotely.
+  'no space left on device',
+  // Sentry issues VIDBEE-6AM / VIDBEE-6AL / VIDBEE-6AK showed private videos
+  // require source account access and cookies, not a desktop code change.
+  "private video. sign in if you've been granted access to this video",
+  // Sentry issue VIDBEE-6IP showed members-only uploads need the user's
+  // channel access and cookies instead of a desktop-side retry or code fix.
+  'members-only content',
+  // Sentry issues VIDBEE-6A7 / VIDBEE-6A6 showed local file permission
+  // denials can block the final rename on Windows.
+  'access is denied',
+  'more expected. giving up after',
   'service unavailable. giving up after',
+  'private video. sign in if you',
+  // Sentry issue VIDBEE-D showed DRM-protected sites that yt-dlp explicitly
+  // marks unsupported should not create desktop defects.
+  'known to use drm protection',
+  'it will not be supported',
+  // Sentry issue VIDBEE-6A1 showed scheduled premieres are expected source
+  // state until the video actually starts.
+  'premieres in ',
+  // Sentry issues VIDBEE-5FG / VIDBEE-5FF / VIDBEE-5FC showed
+  // geo restrictions and audience restrictions are upstream access limits.
+  'available in your country',
+  "content isn't available to everyone",
+  // Sentry issues VIDBEE-5F4 / VIDBEE-5F2 showed live-room offline states
+  // are expected source availability failures.
+  'room is currently offline',
+  'http error 429: too many requests',
+  // Sentry issues VIDBEE-63Q / VIDBEE-63P / VIDBEE-63O / VIDBEE-63J /
+  // VIDBEE-63I / VIDBEE-63H showed BiliBili can return 412 anti-bot
+  // responses that the desktop app cannot recover from locally.
+  'http error 412: precondition failed',
+  // Sentry issue VIDBEE-2L3 showed removed upstream pages returning 410.
+  'http error 410: gone',
+  'removed for violating youtube',
+  'offline.',
+  // Sentry issue VIDBEE-5ET showed malformed user input can reach yt-dlp as a
+  // truncated YouTube id, which should not create a product defect issue.
+  'incomplete youtube id',
+  'looks truncated',
+  'this website is no longer supported since it has been determined to be primarily used for piracy',
+  'certificate verify failed',
+  'legacy-server-connect',
+  'cannot download embed-only video without embedding url',
+  'encoder not found',
+  'ffmpeg not found. please install or provide the path using --ffmpeg-location',
+  'ffprobe not found. please install or provide the path using --ffmpeg-location',
+  'does not look like a netscape format cookies file',
+  'could not resolve host',
+  "'utf-8' codec can't decode byte",
+  'failed to extract entry',
+  'decompression resulted in return code -1',
   'winerror 32',
   'winerror 2',
   'winerror 5',
   'winerror 183',
+  // Sentry issue VIDBEE-1EE showed disconnected or invalid Windows drive
+  // roots can make yt-dlp fail before writing any file.
+  'unable to create directory [winerror 3]',
+  // Sentry issues VIDBEE-63N / VIDBEE-63M showed local proxy settings can
+  // point at a dead loopback listener, which is outside the app control path.
+  'unable to connect to proxy',
+  'winerror 10061',
   'read timed out',
   'more expected. giving up after',
   'connect etimedout',
@@ -77,6 +156,8 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
 ]
 
 const SUBSCRIPTION_OPERATIONAL_PATTERNS = [
+  'status code 500',
+  'status code 503',
   'status code 404',
   'status code 500',
   'status code 502',
@@ -93,6 +174,9 @@ const SUBSCRIPTION_OPERATIONAL_PATTERNS = [
   'net::err_connection_reset',
   'net::err_timed_out',
   'net::err_name_not_resolved',
+  // Sentry issues VIDBEE-61S / VIDBEE-5VB showed DNS lookup failures can
+  // surface from subscription checks as bare Node getaddrinfo errors.
+  'getaddrinfo enotfound',
   'net::err_proxy_connection_failed',
   'net::err_internet_disconnected',
   'client network socket disconnected before secure tls connection was established',
@@ -100,6 +184,10 @@ const SUBSCRIPTION_OPERATIONAL_PATTERNS = [
 ]
 
 const AUTO_UPDATER_OPERATIONAL_PATTERNS = [
+  'enoent: no such file or directory, rename',
+  // Sentry issue VIDBEE-1S showed GitHub release asset requests can return
+  // transient 502 Unicorn pages that are outside the desktop app control path.
+  'httperror: 502',
   'net::err_connection_reset',
   'net::err_connection_closed',
   'net::err_connection_timed_out',
@@ -118,7 +206,10 @@ const AUTO_UPDATER_OPERATIONAL_PATTERNS = [
   'net::err_cert_authority_invalid',
   'net::err_tunnel_connection_failed',
   'net::err_network_access_denied',
-  'enoent: no such file or directory, rename'
+  'enoent: no such file or directory, rename',
+  // Sentry issue VIDBEE-48 can also surface as a bare Node DNS failure before
+  // Electron normalizes it to net::ERR_NAME_NOT_RESOLVED.
+  'getaddrinfo enotfound'
 ] as const
 
 const AUTO_UPDATER_REQUEST_PATTERNS = [
@@ -165,26 +256,35 @@ interface TelemetryContextShape {
   tags?: Record<string, boolean | number | string | undefined>
 }
 
+interface TelemetryEventTag {
+  key?: string
+  value?: unknown
+}
+
 interface TelemetryEventExceptionValue {
   type?: string
   value?: string
 }
 
+interface TelemetryEventBreadcrumb {
+  category?: string
+  data?: Record<string, unknown>
+}
+
+interface TelemetryEventEntry {
+  type?: string
+  data?: {
+    values?: TelemetryEventBreadcrumb[]
+  }
+}
+
 interface TelemetryEventShape {
-  entries?: Array<{
-    data?: {
-      values?: Array<{
-        category?: string
-        data?: Record<string, unknown>
-      }>
-    }
-    type?: string
-  }>
   exception?: {
     values?: TelemetryEventExceptionValue[]
   }
   message?: string
-  tags?: Record<string, unknown>
+  tags?: Record<string, unknown> | TelemetryEventTag[]
+  entries?: TelemetryEventEntry[]
 }
 
 /**
@@ -203,9 +303,61 @@ const normalizeTelemetryText = (value: string | undefined | null): string => {
  * @param tags The telemetry tags bag.
  * @returns The normalized source tag.
  */
-const readSourceTag = (tags: Record<string, unknown> | undefined): string => {
+const readSourceTag = (tags: Record<string, unknown> | TelemetryEventTag[] | undefined): string => {
+  if (Array.isArray(tags)) {
+    const sourceTag = tags.find((tag) => tag.key === 'source')
+    return typeof sourceTag?.value === 'string' ? normalizeTelemetryText(sourceTag.value) : ''
+  }
+
   const source = tags?.source
   return typeof source === 'string' ? normalizeTelemetryText(source) : ''
+}
+
+/**
+ * Infer the updater source from serialized Electron network breadcrumbs.
+ *
+ * @param event The telemetry event candidate.
+ * @returns The inferred source tag when the breadcrumbs match the updater path.
+ */
+const inferSourceFromBreadcrumbs = (event: TelemetryEventShape): string => {
+  // Sentry issues VIDBEE-9 / VIDBEE-17 / VIDBEE-1H / VIDBEE-1O showed
+  // updater transport failures can arrive without the explicit source tag.
+  for (const entry of event.entries ?? []) {
+    if (entry.type !== 'breadcrumbs') {
+      continue
+    }
+
+    for (const breadcrumb of entry.data?.values ?? []) {
+      if (breadcrumb.category !== 'electron.net') {
+        continue
+      }
+
+      const url = breadcrumb.data?.url
+      if (typeof url !== 'string') {
+        continue
+      }
+
+      const normalizedUrl = normalizeTelemetryText(url)
+      if (
+        normalizedUrl.includes('github.com/nexmoe/vidbee/releases/') ||
+        normalizedUrl.includes('objects.githubusercontent.com/github-production-release-asset-')
+      ) {
+        return 'auto-updater'
+      }
+    }
+  }
+
+  return ''
+}
+
+/**
+ * Resolve the best telemetry source from direct tags or serialized breadcrumbs.
+ *
+ * @param event The telemetry event candidate.
+ * @returns The normalized source tag.
+ */
+const resolveEventSource = (event: TelemetryEventShape): string => {
+  return readSourceTag(event.tags) || inferSourceFromBreadcrumbs(event)
 }
 
 /**
@@ -382,7 +534,7 @@ export const shouldSkipTelemetryError = (
  * @returns True when the event is expected operational noise.
  */
 export const shouldDropTelemetryEvent = (event: TelemetryEventShape): boolean => {
-  const source = readSourceTag(event.tags)
+  const source = resolveEventSource(event)
   const messages = collectEventMessages(event)
   if (isOperationalTelemetry(messages, source)) {
     return true
