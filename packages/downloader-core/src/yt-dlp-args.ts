@@ -27,9 +27,28 @@ export interface YtDlpDownloadOptions {
 }
 
 const YOUTUBE_HOST_SUFFIXES = ['youtube.com', 'youtu.be', 'youtube-nocookie.com'] as const
-const YOUTUBE_SAFE_PLAYER_CLIENTS = 'default,-web,-web_safari'
+// GitHub issue #359: drop only the bare `web` client (which requires a PO
+// token and frequently 403s) but keep `web_safari` and the other defaults so
+// extraction has more fallbacks before failing.
+const YOUTUBE_SAFE_PLAYER_CLIENTS = 'default,-web'
 const DEFAULT_FILENAME_TEMPLATE = '%(title)s via VidBee.%(ext)s'
 const WINDOWS_FILENAME_TRIM_LENGTH = '120'
+
+// GitHub issues #326, #355, #325: yt-dlp's default of 10 retries and no
+// socket timeout left users with `Giving up after N retries` and DNS hangs
+// on flaky networks. Push the defaults up and add a short backoff so a
+// single transient failure does not abort the whole download.
+const DEFAULT_RETRIES = '30'
+const DEFAULT_FRAGMENT_RETRIES = '30'
+const DEFAULT_RETRY_SLEEP = '2'
+const DEFAULT_SOCKET_TIMEOUT = '30'
+
+const appendNetworkResilienceArgs = (args: string[]): void => {
+  args.push('--retries', DEFAULT_RETRIES)
+  args.push('--fragment-retries', DEFAULT_FRAGMENT_RETRIES)
+  args.push('--retry-sleep', DEFAULT_RETRY_SLEEP)
+  args.push('--socket-timeout', DEFAULT_SOCKET_TIMEOUT)
+}
 
 const hasYouTubeHost = (host: string): boolean =>
   YOUTUBE_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`))
@@ -226,6 +245,11 @@ export const buildDownloadArgs = (
     if ((options.audioFormatIds?.length ?? 0) > 0 || formatSelector.includes('mergeall')) {
       args.push('--audio-multistreams')
     }
+    // GitHub issues #207 and #129: when ffmpeg cannot mux the streams into
+    // mp4 (HEVC + Hi-Res audio on bilibili, webm fragments on YouTube under
+    // proxies, etc.), let yt-dlp fall back to mkv automatically instead of
+    // surfacing a `Conversion failed` / `Invalid data` error.
+    args.push('--merge-output-format', 'mp4/mkv')
   } else if (options.type === 'audio') {
     args.push('-f', resolveAudioFormatSelector(options))
   }
@@ -272,6 +296,7 @@ export const buildDownloadArgs = (
   args.push('--no-playlist-reverse')
 
   appendPlatformFilenameSafetyArgs(args)
+  appendNetworkResilienceArgs(args)
 
   if (browserForCookies && browserForCookies !== 'none') {
     args.push('--cookies-from-browser', browserForCookies)
@@ -313,6 +338,10 @@ export const buildVideoInfoArgs = (
     args.push('--proxy', proxy)
   }
 
+  // GitHub issues #355 / #325: cap info-fetch socket waits so a broken DNS
+  // or proxy fails fast with a clear error instead of hanging.
+  args.push('--socket-timeout', DEFAULT_SOCKET_TIMEOUT)
+
   const browserForCookies = normalizeBrowserCookiesSettingForYtDlp(settings.browserForCookies)
   if (browserForCookies && browserForCookies !== 'none') {
     args.push('--cookies-from-browser', browserForCookies)
@@ -349,6 +378,10 @@ export const buildPlaylistInfoArgs = (
   if (proxy) {
     args.push('--proxy', proxy)
   }
+
+  // GitHub issues #355 / #325: cap info-fetch socket waits so a broken DNS
+  // or proxy fails fast with a clear error instead of hanging.
+  args.push('--socket-timeout', DEFAULT_SOCKET_TIMEOUT)
 
   const browserForCookies = normalizeBrowserCookiesSettingForYtDlp(settings.browserForCookies)
   if (browserForCookies && browserForCookies !== 'none') {
