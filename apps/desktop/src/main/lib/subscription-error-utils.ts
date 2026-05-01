@@ -11,7 +11,6 @@ const NON_ACTIONABLE_SUBSCRIPTION_ERROR_PATTERNS = [
   'Status code 502',
   'Status code 503',
   'Request timed out after 60000ms',
-  'AggregateError',
   'read ECONNRESET',
   'socket hang up',
   'getaddrinfo ENOTFOUND',

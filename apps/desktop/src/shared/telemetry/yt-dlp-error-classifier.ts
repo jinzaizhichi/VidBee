@@ -32,6 +32,9 @@ interface CategoryRule {
   patterns: readonly string[]
 }
 
+// NEX-114 follow-up: keep broad HTTP, postprocessing, extractor, and local OS
+// failures reportable. They are often upstream noise, but they can also be
+// caused by VidBee's selected formats, bundled binaries, or path handling.
 const CATEGORY_RULES: readonly CategoryRule[] = [
   {
     category: 'cancelled',
@@ -106,9 +109,6 @@ const CATEGORY_RULES: readonly CategoryRule[] = [
       'the channel is not currently live',
       'http error 404: not found',
       'http error 410: gone',
-      'http error 502: bad gateway',
-      'http error 503',
-      'service unavailable. giving up after',
       'room is currently offline',
       'available in your country',
       "content isn't available to everyone",
@@ -121,9 +121,7 @@ const CATEGORY_RULES: readonly CategoryRule[] = [
     category: 'access-denied',
     isOperational: true,
     patterns: [
-      'http error 403: forbidden',
       'got http error 403 when using impersonate target',
-      'access is denied',
       'cloudflare anti-bot challenge',
       'this website is no longer supported since it has been determined to be primarily used for piracy'
     ]
@@ -156,22 +154,13 @@ const CATEGORY_RULES: readonly CategoryRule[] = [
       'unable to connect to proxy',
       'unable to download video data',
       'unable to download video subtitles',
-      'unable to extract',
-      'unable to obtain',
       'read timed out',
       'connect etimedout',
-      'resolving timed out after',
-      'connection timed out after',
-      'tls connect error',
-      'tlsv1_alert_protocol_version',
       'sslv3_alert_handshake_failure',
       'eof occurred in violation of protocol',
       'certificate verify failed',
       'decryption failed or bad record mac',
       'requested range not satisfiable',
-      'invalid data found when processing input',
-      'cannot parse data',
-      'did not get any data blocks',
       'more expected. giving up after',
       'net::err_connection_reset',
       'net::err_timed_out',
@@ -186,38 +175,78 @@ const CATEGORY_RULES: readonly CategoryRule[] = [
     patterns: [
       'no space left on device',
       'cannot create a file when that file already exists',
-      'unable to rename file',
       'file name too long',
       'unable to create directory [winerror 3]',
-      'winerror 32',
-      'winerror 2',
-      'winerror 5',
-      'winerror 183',
       "'utf-8' codec can't decode byte",
-      'decompression resulted in return code -1',
       'ffmpeg not found. please install or provide the path using --ffmpeg-location',
-      'ffprobe not found. please install or provide the path using --ffmpeg-location',
-      'encoder not found'
+      'ffprobe not found. please install or provide the path using --ffmpeg-location'
     ]
   },
   {
     category: 'postprocessing',
     isOperational: true,
-    // Sentry issue VIDBEE-68 grouping noise: `Postprocessing:` failures bubble
-    // up directly from yt-dlp's stderr. ffmpeg/ffprobe-side failures are
-    // upstream tooling or source-data problems, not VidBee defects, so we
-    // collapse them into a single operational category.
+    patterns: [
+      'postprocessing: error opening output files: encoder not found',
+      'supported filetypes for thumbnail embedding are'
+    ]
+  },
+  {
+    category: 'unavailable',
+    isOperational: false,
+    patterns: [
+      'http error 502: bad gateway',
+      'http error 503',
+      'service unavailable. giving up after'
+    ]
+  },
+  {
+    category: 'access-denied',
+    isOperational: false,
+    patterns: ['http error 403: forbidden', 'access is denied']
+  },
+  {
+    category: 'network',
+    isOperational: false,
+    patterns: [
+      'resolving timed out after',
+      'connection timed out after',
+      'tls connect error',
+      'tlsv1_alert_protocol_version',
+      'did not get any data blocks'
+    ]
+  },
+  {
+    category: 'environment',
+    isOperational: false,
+    patterns: [
+      'unable to rename file',
+      'winerror 32',
+      'winerror 2',
+      'winerror 5',
+      'winerror 183',
+      'decompression resulted in return code -1',
+      'encoder not found'
+    ]
+  },
+  {
+    category: 'postprocessing',
+    isOperational: false,
     patterns: [
       'postprocessing:',
       'embedding metadata',
       'embedding subtitles',
       'embedding thumbnails',
-      'supported filetypes for thumbnail embedding are'
+      'invalid data found when processing input'
     ]
   },
   {
+    category: 'network',
+    isOperational: false,
+    patterns: ['unable to extract', 'unable to obtain', 'cannot parse data']
+  },
+  {
     category: 'http-error',
-    isOperational: true,
+    isOperational: false,
     patterns: ['http error ']
   }
 ] as const
@@ -250,13 +279,8 @@ const collectMessages = (error: unknown): string[] => {
 const matchesAnyPattern = (messages: string[], patterns: readonly string[]): boolean =>
   patterns.some((pattern) => messages.some((message) => message.includes(pattern)))
 
-/**
- * Classify a download error so telemetry can tag it and decide whether to
- * upload it. Operational errors (upstream / environment / user-state) get
- * skipped so VidBee-side defects rise above the noise.
- */
-export const classifyDownloadError = (error: unknown): DownloadErrorClassification => {
-  const messages = collectMessages(error)
+export const classifyDownloadMessages = (rawMessages: string[]): DownloadErrorClassification => {
+  const messages = rawMessages.map((message) => normalize(message)).filter(Boolean)
   if (messages.length === 0) {
     return { category: 'unknown', isOperational: false }
   }
@@ -268,4 +292,13 @@ export const classifyDownloadError = (error: unknown): DownloadErrorClassificati
   }
 
   return { category: 'unknown', isOperational: false }
+}
+
+/**
+ * Classify a download error so telemetry can tag it and decide whether to
+ * upload it. Operational errors (upstream / environment / user-state) get
+ * skipped so VidBee-side defects rise above the noise.
+ */
+export const classifyDownloadError = (error: unknown): DownloadErrorClassification => {
+  return classifyDownloadMessages(collectMessages(error))
 }

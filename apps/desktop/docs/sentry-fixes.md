@@ -61,11 +61,16 @@ commits) is the right point for the maintainer to flip them to resolved.
   one of `postprocessing | http-error | unsupported-url | access-denied |
   unavailable | rate-limit | network | auth-required | drm-protected |
   no-format | cookies-required | environment | cancelled | unknown`. The
-  `download-error` listener in `src/main/index.ts` now:
-  - skips `captureMainException` entirely when the classification is
-    operational (12 of the 13 known categories);
-  - tags the captured event with `download_error_category` for any genuine
-    `unknown` defect, so future grouping is stable.
+  `download-error` listener in `src/main/index.ts` now skips
+  `captureMainException` only when the matched rule is marked operational,
+  and tags captured events with `download_error_category` so future grouping
+  is stable.
+- Follow-up filter audit (NEX-114): generic HTTP failures, generic
+  postprocessing failures, extractor/parser failures, broad TLS timeout
+  strings, bare Windows error codes, and bare `AggregateError` subscription
+  failures were made reportable again. The operational list now keeps only
+  narrower user-state, source-availability, and environment cases quiet, while
+  still preserving category tags for the reportable cases.
 - Files:
   - `src/shared/telemetry/yt-dlp-error-classifier.ts` (new)
   - `src/main/index.ts` (`download-error` listener)

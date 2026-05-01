@@ -1,190 +1,17 @@
+import { classifyDownloadMessages } from './yt-dlp-error-classifier'
+
 const GLOBAL_OPERATIONAL_PATTERNS = [
   'ffmpeg not initialized. call initialize() first.',
   'manual download feedback submitted'
 ]
 
-const DOWNLOAD_OPERATIONAL_PATTERNS = [
-  'could not copy chrome cookie database',
-  'could not find chrome cookies database',
-  'could not find chromium cookies database',
-  'failed to decrypt with dpapi',
-  'could not find firefox cookies database',
-  'could not find opera cookies database',
-  'opera does not support profiles',
-  'custom safari cookies database not found',
-  'opera does not support profiles',
-  'could not find opera cookies database',
-  'fresh cookies (not necessarily logged in) are needed',
-  // Sentry issue VIDBEE-77G showed some extractors emit the same guidance
-  // without the "fresh" prefix when cookies are required upstream.
-  'cookies (not necessarily logged in) are needed',
-  // Sentry issues VIDBEE-4LN through VIDBEE-4N2 showed local socket policy
-  // failures bubbling out of yt-dlp as WinError 10013 noise.
-  'winerror 10013',
-  'an attempt was made to access a socket in a way forbidden by its access permissions',
-  'http error 403: forbidden',
-  // Sentry issues VIDBEE-4AK / VIDBEE-74R showed generic upstream 502 pages
-  // from origin hosts should be treated like other transient 5xx failures.
-  'http error 502: bad gateway',
-  // Sentry issue VIDBEE-DE showed Cloudflare can block generic extractor
-  // requests with an anti-bot challenge that requires upstream impersonation.
-  'cloudflare anti-bot challenge',
-  "sign in to confirm you're not a bot",
-  'sign in to confirm you’re not a bot',
-  // Sentry issues VIDBEE-5FL / VIDBEE-5EN / VIDBEE-5EM showed
-  // age-restricted videos need cookies, not a desktop code fix.
-  'sign in to confirm your age',
-  "private video. sign in if you've been granted access",
-  'unsupported url',
-  'this website is no longer supported since it has been determined to be primarily used for piracy',
-  'video unavailable',
-  'access restricted',
-  'offline.',
-  'requested format is not available',
-  // Sentry issues VIDBEE-41B / VIDBEE-3IH showed Google Drive can reject
-  // downloads for users without source access, which is not a desktop bug.
-  'only the owner and editors can download this file',
-  'did not get any data blocks',
-  'no video formats found',
-  'no video could be found in this tweet',
-  'the channel is not currently live',
-  'http error 404: not found',
-  'unable to extract encoded url',
-  'please report this issue on',
-  'got http error 403 when using impersonate target',
-  'unable to download video subtitles',
-  'unable to download video data: [ssl: certificate_verify_failed]',
-  'cannot parse data',
-  'requested range not satisfiable',
-  'invalid data found when processing input',
-  'decryption failed or bad record mac',
-  'connection aborted.',
-  'forcibly closed by the remote host',
-  'unable to rename file',
-  "this video has been removed for violating youtube's community guidelines",
-  'file name too long',
-  // Sentry issues VIDBEE-3PO / VIDBEE-VK showed local disk exhaustion can
-  // abort writes after the download already succeeded remotely.
-  'no space left on device',
-  // Sentry issues VIDBEE-6AM / VIDBEE-6AL / VIDBEE-6AK showed private videos
-  // require source account access and cookies, not a desktop code change.
-  "private video. sign in if you've been granted access to this video",
-  // Sentry issue VIDBEE-6IP showed members-only uploads need the user's
-  // channel access and cookies instead of a desktop-side retry or code fix.
-  'members-only content',
-  // Sentry issues VIDBEE-6A7 / VIDBEE-6A6 showed local file permission
-  // denials can block the final rename on Windows.
-  'access is denied',
-  'more expected. giving up after',
-  'service unavailable. giving up after',
-  'private video. sign in if you',
-  // Sentry issue VIDBEE-D showed DRM-protected sites that yt-dlp explicitly
-  // marks unsupported should not create desktop defects.
-  'known to use drm protection',
-  'it will not be supported',
-  // Sentry issue VIDBEE-6A1 showed scheduled premieres are expected source
-  // state until the video actually starts.
-  'premieres in ',
-  // Sentry issues VIDBEE-5FG / VIDBEE-5FF / VIDBEE-5FC showed
-  // geo restrictions and audience restrictions are upstream access limits.
-  'available in your country',
-  "content isn't available to everyone",
-  // Sentry issues VIDBEE-5F4 / VIDBEE-5F2 showed live-room offline states
-  // are expected source availability failures.
-  'room is currently offline',
-  'http error 429: too many requests',
-  // Sentry issues VIDBEE-63Q / VIDBEE-63P / VIDBEE-63O / VIDBEE-63J /
-  // VIDBEE-63I / VIDBEE-63H showed BiliBili can return 412 anti-bot
-  // responses that the desktop app cannot recover from locally.
-  'http error 412: precondition failed',
-  // Sentry issue VIDBEE-2L3 showed removed upstream pages returning 410.
-  'http error 410: gone',
-  'removed for violating youtube',
-  'offline.',
-  // Sentry issue VIDBEE-5ET showed malformed user input can reach yt-dlp as a
-  // truncated YouTube id, which should not create a product defect issue.
-  'incomplete youtube id',
-  'looks truncated',
-  'this website is no longer supported since it has been determined to be primarily used for piracy',
-  'certificate verify failed',
-  'legacy-server-connect',
-  'cannot download embed-only video without embedding url',
-  'encoder not found',
-  'ffmpeg not found. please install or provide the path using --ffmpeg-location',
-  'ffprobe not found. please install or provide the path using --ffmpeg-location',
-  'does not look like a netscape format cookies file',
-  'could not resolve host',
-  "'utf-8' codec can't decode byte",
-  'failed to extract entry',
-  'decompression resulted in return code -1',
-  'winerror 32',
-  'winerror 2',
-  'winerror 5',
-  'winerror 183',
-  // Sentry issue VIDBEE-1EE showed disconnected or invalid Windows drive
-  // roots can make yt-dlp fail before writing any file.
-  'unable to create directory [winerror 3]',
-  // Sentry issues VIDBEE-63N / VIDBEE-63M showed local proxy settings can
-  // point at a dead loopback listener, which is outside the app control path.
-  'unable to connect to proxy',
-  'winerror 10061',
-  'read timed out',
-  'more expected. giving up after',
-  'connect etimedout',
-  // Sentry issues VIDBEE-76V / VIDBEE-76U / VIDBEE-76T / VIDBEE-76S /
-  // VIDBEE-76R showed curl can surface upstream resolver, timeout, and TLS
-  // handshake failures with wording that does not match the older snippets.
-  'resolving timed out after',
-  'connection timed out after',
-  'tls connect error',
-  'tlsv1_alert_protocol_version',
-  'connection aborted.',
-  'forcibly closed by the remote host',
-  'failed to resolve',
-  'decryption failed or bad record mac',
-  'eof occurred in violation of protocol',
-  'sslv3_alert_handshake_failure',
-  '--legacy-server-connect',
-  'net::err_connection_reset',
-  'net::err_timed_out',
-  'postprocessing: error opening output files: encoder not found',
-  'postprocessing: conversion failed!',
-  'supported filetypes for thumbnail embedding are',
-  // Sentry issue VIDBEE-1J8 showed Linux browser-cookie extraction can fail
-  // when the local keyring dependency is missing, which is an environment
-  // setup problem rather than a desktop product defect.
-  'secretstorage not available',
-  'this format is drm protected',
-  'requested site is known to use drm protection',
-  'cloudflare anti-bot challenge',
-  'got http error 403 when using impersonate target',
-  'cookies file must be netscape formatted',
-  'does not look like a netscape format cookies file',
-  'file name too long',
-  'no space left on device',
-  'access is denied',
-  'cannot create a file when that file already exists',
-  // Sentry issues VIDBEE-77A / VIDBEE-779 showed some providers reject stale
-  // session state with an upstream "reload page" authorization error.
-  'authorization failed. try to reload page.',
-  'the channel is not currently live',
-  'no video could be found in this tweet',
-  'could not authenticate you',
-  'not made this video available in your country',
-  'sign in to confirm your age',
-  "this video has been removed for violating youtube's terms of service"
-]
-
 const SUBSCRIPTION_OPERATIONAL_PATTERNS = [
-  'status code 500',
-  'status code 503',
   'status code 404',
   'status code 500',
   'status code 502',
   'status code 503',
   'request timed out after 60000ms',
   'request path contains unescaped characters',
-  'aggregateerror',
   'attribute without value',
   'non-whitespace before first tag.',
   'unexpected close tag',
@@ -226,7 +53,6 @@ const AUTO_UPDATER_OPERATIONAL_PATTERNS = [
   'net::err_cert_authority_invalid',
   'net::err_tunnel_connection_failed',
   'net::err_network_access_denied',
-  'enoent: no such file or directory, rename',
   // Sentry issue VIDBEE-48 can also surface as a bare Node DNS failure before
   // Electron normalizes it to net::ERR_NAME_NOT_RESOLVED.
   'getaddrinfo enotfound'
@@ -237,32 +63,6 @@ const AUTO_UPDATER_REQUEST_PATTERNS = [
   'github.com/nexmoe/vidbee/releases/download/',
   'release-assets.githubusercontent.com/github-production-release-asset/'
 ] as const
-
-// Sentry issues VIDBEE-1G / VIDBEE-68 / VIDBEE-FA / VIDBEE-S5 /
-// VIDBEE-1QB / VIDBEE-1QE / VIDBEE-1SE / VIDBEE-VK showed the desktop app was
-// forwarding yt-dlp environment and user-input failures that do not represent
-// actionable VidBee defects.
-
-// Sentry issues VIDBEE-28K / VIDBEE-28I / VIDBEE-E / VIDBEE-DE / VIDBEE-11
-// showed extractor access denials and missing subtitles are usually remote
-// site-policy failures, not regressions in the desktop app download flow.
-
-// Sentry issues VIDBEE-2CC / VIDBEE-2CB / VIDBEE-EB / VIDBEE-JN showed more
-// yt-dlp operational noise still escaping from the wrapped stderr payload:
-// upstream parser-report prompts, Opera cookie lookup failures, transient TLS
-// record corruption, and remote-host resets should not create product bugs.
-
-// Sentry issues VIDBEE-1FR / VIDBEE-2FO / VIDBEE-2FL / VIDBEE-2F5 /
-// VIDBEE-2F3 / VIDBEE-2F2 / VIDBEE-2F1 showed more remote access-policy and
-// transport failures: extractor access restrictions, short-read retry
-// exhaustion, private-video auth requirements, rate limits, and temporary
-// offline states should be treated as operational download noise.
-
-// Sentry issues VIDBEE-2A / VIDBEE-2C4 / VIDBEE-2BE / VIDBEE-2FD /
-// VIDBEE-10G / VIDBEE-2FA showed more non-actionable download conditions:
-// piracy-blocked sites, remote TLS certificate or cipher failures, embed-only
-// URLs that need the original page, missing ffmpeg tooling, and file lock
-// rename collisions should not be tracked as desktop defects.
 
 // Sentry issues VIDBEE-31 / VIDBEE-1LV / VIDBEE-1N2 / VIDBEE-1N7 /
 // VIDBEE-1N6 / VIDBEE-1N4 / VIDBEE-1N3 are upstream RSS transport failures and
@@ -617,8 +417,12 @@ const isOperationalTelemetry = (messages: string[], source: string): boolean => 
     return true
   }
 
-  if (source.startsWith('download') || source === 'one-click-download') {
-    return matchesAnyPattern(messages, DOWNLOAD_OPERATIONAL_PATTERNS)
+  if (
+    source.startsWith('download') ||
+    source === 'one-click-download' ||
+    source === 'subscription.download'
+  ) {
+    return classifyDownloadMessages(messages).isOperational
   }
 
   if (source.startsWith('subscription')) {
