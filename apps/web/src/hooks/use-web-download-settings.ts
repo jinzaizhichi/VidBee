@@ -18,6 +18,9 @@ export const useWebDownloadSettings = () => {
 		oneClickQuality:
 			webSettings.oneClickQuality ??
 			DEFAULT_WEB_DOWNLOAD_SETTINGS.oneClickQuality,
+		oneClickContainer:
+			webSettings.oneClickContainer ??
+			DEFAULT_WEB_DOWNLOAD_SETTINGS.oneClickContainer,
 	};
 
 	const updateSettings = (updates: Partial<WebDownloadSettings>) => {

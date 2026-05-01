@@ -1,4 +1,8 @@
+import type { OneClickContainerOption } from './format-preferences'
+
 export type DownloadType = 'video' | 'audio'
+
+export type { OneClickContainerOption }
 
 export type DownloadStatus =
   | 'pending'
@@ -92,6 +96,7 @@ export interface CreateDownloadInput {
   endTime?: string
   customDownloadPath?: string
   customFilenameTemplate?: string
+  containerFormat?: OneClickContainerOption
   settings?: DownloadRuntimeSettings
 }
 
@@ -154,6 +159,7 @@ export interface PlaylistDownloadInput {
   entryIds?: string[]
   startIndex?: number
   endIndex?: number
+  containerFormat?: OneClickContainerOption
   settings?: DownloadRuntimeSettings
 }
 

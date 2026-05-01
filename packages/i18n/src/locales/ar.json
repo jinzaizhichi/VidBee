@@ -500,7 +500,16 @@
       "quit": "إنهاء",
       "showHome": "إظهار الصفحة الرئيسية"
     },
-    "video": "تفضيلات الفيديو"
+    "video": "تفضيلات الفيديو",
+    "oneClickContainer": "تنسيق الحاوية",
+    "oneClickContainerDescription": "اختر تنسيق الحاوية لتنزيلات النقرة الواحدة. يفضل الوضع التلقائي MP4 ويعود إلى MKV عند عدم توافق الترميز.",
+    "oneClickContainerOptions": {
+      "auto": "تلقائي (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "أصلي (افتراضي yt-dlp)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "الاشتراكات",

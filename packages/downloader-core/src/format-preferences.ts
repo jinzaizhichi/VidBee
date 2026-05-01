@@ -1,5 +1,15 @@
 export type OneClickQualityPreset = 'best' | 'good' | 'normal' | 'bad' | 'worst'
 
+export type OneClickContainerOption = 'auto' | 'mp4' | 'mkv' | 'webm' | 'original'
+
+export const ONE_CLICK_CONTAINER_OPTIONS: OneClickContainerOption[] = [
+  'auto',
+  'mp4',
+  'mkv',
+  'webm',
+  'original'
+]
+
 export interface OneClickFormatSettings {
   oneClickQuality?: OneClickQualityPreset
 }

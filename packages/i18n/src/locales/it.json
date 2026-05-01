@@ -500,7 +500,16 @@
       "quit": "Esci",
       "showHome": "Mostra Home"
     },
-    "video": "Preferenze Video"
+    "video": "Preferenze Video",
+    "oneClickContainer": "Contenitore",
+    "oneClickContainerDescription": "Scegli il contenitore di output per i download a un clic. Auto preferisce MP4 e ricade su MKV con codec incompatibili.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Originale (default yt-dlp)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "Abbonamenti",

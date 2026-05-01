@@ -500,7 +500,16 @@
       "quit": "Beenden",
       "showHome": "Startseite anzeigen"
     },
-    "video": "Video-Einstellungen"
+    "video": "Video-Einstellungen",
+    "oneClickContainer": "Container",
+    "oneClickContainerDescription": "Wähle den Ausgabe-Container für Ein-Klick-Downloads. Auto bevorzugt MP4 und fällt bei inkompatiblen Codecs auf MKV zurück.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Original (yt-dlp-Standard)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "Abonnements",

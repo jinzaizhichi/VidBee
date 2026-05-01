@@ -7,10 +7,12 @@ export { downloaderContract } from './contract'
 export { DownloaderCore } from './downloader-core'
 export { WebAppSettingsSchema } from './schemas'
 export type {
+  OneClickContainerOption,
   OneClickFormatSettings,
   OneClickQualityPreset
 } from './format-preferences'
 export {
+  ONE_CLICK_CONTAINER_OPTIONS,
   buildAudioFormatPreference,
   buildVideoFormatPreference
 } from './format-preferences'

@@ -1,4 +1,7 @@
+import type { OneClickContainerOption } from '@vidbee/downloader-core/format-preferences'
 import { defaultLanguageCode, type LanguageCode } from '@vidbee/i18n/languages'
+
+export type { OneClickContainerOption }
 
 // Download related types
 export interface VideoFormat {
@@ -148,6 +151,7 @@ export interface DownloadOptions {
   downloadSubs?: boolean
   customDownloadPath?: string
   customFilenameTemplate?: string
+  containerFormat?: OneClickContainerOption
   tags?: string[]
   origin?: 'manual' | 'subscription'
   subscriptionId?: string
@@ -178,6 +182,7 @@ export interface PlaylistDownloadOptions {
   filenameFormat?: string
   folderFormat?: string
   customDownloadPath?: string
+  containerFormat?: OneClickContainerOption
 }
 
 export interface PlaylistDownloadEntry {
@@ -279,6 +284,7 @@ export interface AppSettings {
   oneClickDownload: boolean
   oneClickDownloadType: 'video' | 'audio'
   oneClickQuality: OneClickQualityPreset
+  oneClickContainer: OneClickContainerOption
   closeToTray: boolean
   hideDockIcon: boolean
   launchAtLogin: boolean
@@ -311,6 +317,7 @@ export const defaultSettings: AppSettings = {
   oneClickDownload: true,
   oneClickDownloadType: 'video',
   oneClickQuality: 'best',
+  oneClickContainer: 'auto',
   closeToTray: true,
   hideDockIcon: false,
   launchAtLogin: false,

@@ -727,6 +727,7 @@ export class DownloaderCore extends EventEmitter {
         audioFormatIds: input.audioFormatIds,
         customDownloadPath: input.customDownloadPath,
         customFilenameTemplate: input.customFilenameTemplate,
+        containerFormat: input.containerFormat,
         settings: input.settings
       })
 
@@ -834,7 +835,8 @@ export class DownloaderCore extends EventEmitter {
         startTime: input.startTime,
         endTime: input.endTime,
         customDownloadPath: input.customDownloadPath,
-        customFilenameTemplate: input.customFilenameTemplate
+        customFilenameTemplate: input.customFilenameTemplate,
+        containerFormat: input.containerFormat
       },
       this.downloadDir,
       runtimeSettings,

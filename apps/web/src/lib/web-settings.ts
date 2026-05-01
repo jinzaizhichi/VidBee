@@ -12,6 +12,13 @@ export type OneClickQualityPreset =
 	| "bad"
 	| "worst";
 
+export type OneClickContainerOption =
+	| "auto"
+	| "mp4"
+	| "mkv"
+	| "webm"
+	| "original";
+
 export type ThemeValue = "light" | "dark" | "system";
 
 export interface WebAppSettings {
@@ -27,6 +34,7 @@ export interface WebAppSettings {
 	oneClickDownload: boolean;
 	oneClickDownloadType: DownloadType;
 	oneClickQuality: OneClickQualityPreset;
+	oneClickContainer: OneClickContainerOption;
 	closeToTray: boolean;
 	autoUpdate: boolean;
 	subscriptionOnlyLatestDefault: boolean;
@@ -53,6 +61,7 @@ export const defaultWebSettings: WebAppSettings = {
 	oneClickDownload: true,
 	oneClickDownloadType: "video",
 	oneClickQuality: "best",
+	oneClickContainer: "auto",
 	closeToTray: true,
 	autoUpdate: true,
 	subscriptionOnlyLatestDefault: true,
@@ -82,6 +91,19 @@ const toOneClickQuality = (value: unknown): OneClickQualityPreset => {
 		return value;
 	}
 	return defaultWebSettings.oneClickQuality;
+};
+
+const toOneClickContainer = (value: unknown): OneClickContainerOption => {
+	if (
+		value === "auto" ||
+		value === "mp4" ||
+		value === "mkv" ||
+		value === "webm" ||
+		value === "original"
+	) {
+		return value;
+	}
+	return defaultWebSettings.oneClickContainer;
 };
 
 const toDownloadType = (value: unknown): DownloadType => {
@@ -133,6 +155,7 @@ const parseSettings = (raw: string | null): WebAppSettings => {
 			),
 			oneClickDownloadType: toDownloadType(parsed.oneClickDownloadType),
 			oneClickQuality: toOneClickQuality(parsed.oneClickQuality),
+			oneClickContainer: toOneClickContainer(parsed.oneClickContainer),
 			closeToTray: toBoolean(
 				parsed.closeToTray,
 				defaultWebSettings.closeToTray,

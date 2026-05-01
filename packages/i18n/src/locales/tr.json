@@ -500,7 +500,16 @@
       "quit": "Çık",
       "showHome": "Ana Sayfa'yı göster"
     },
-    "video": "Video Tercihleri"
+    "video": "Video Tercihleri",
+    "oneClickContainer": "Kapsayıcı",
+    "oneClickContainerDescription": "Tek tıkla indirmeler için çıkış kapsayıcısını seçin. Auto önce MP4'ü dener, codec uyumsuzsa MKV'ye düşer.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Orijinal (yt-dlp varsayılanı)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "Abonelikler",

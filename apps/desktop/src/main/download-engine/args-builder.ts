@@ -17,7 +17,8 @@ const toSharedOptions = (options: DownloadOptions): YtDlpDownloadOptions => ({
   startTime: options.startTime,
   endTime: options.endTime,
   customDownloadPath: options.customDownloadPath,
-  customFilenameTemplate: options.customFilenameTemplate
+  customFilenameTemplate: options.customFilenameTemplate,
+  containerFormat: options.containerFormat
 })
 
 const toSharedSettings = (settings: AppSettings): YtDlpDownloadSettings => ({

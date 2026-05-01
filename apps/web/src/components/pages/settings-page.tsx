@@ -50,7 +50,10 @@ import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useWebSettings } from "../../hooks/use-web-settings";
-import type { OneClickQualityPreset } from "../../lib/download-format-preferences";
+import type {
+	OneClickContainerOption,
+	OneClickQualityPreset,
+} from "../../lib/download-format-preferences";
 import { orpcClient } from "../../lib/orpc-client";
 import type { ThemeValue, WebAppSettings } from "../../lib/web-settings";
 import { AppShell } from "../layout/app-shell";
@@ -625,6 +628,48 @@ export const SettingsPage = () => {
 														</SelectItem>
 														<SelectItem value="worst">
 															{t("settings.oneClickQualityOptions.worst")}
+														</SelectItem>
+													</SelectContent>
+												</Select>
+											</ItemActions>
+										</Item>
+										<ItemSeparator />
+										<Item variant="muted">
+											<ItemContent>
+												<ItemTitle>{t("settings.oneClickContainer")}</ItemTitle>
+												<ItemDescription>
+													{t("settings.oneClickContainerDescription")}
+												</ItemDescription>
+											</ItemContent>
+											<ItemActions>
+												<Select
+													onValueChange={(value) =>
+														updateSingleSetting(
+															"oneClickContainer",
+															value as OneClickContainerOption,
+															updateSettings,
+														)
+													}
+													value={settings.oneClickContainer ?? "auto"}
+												>
+													<SelectTrigger className="w-40">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="auto">
+															{t("settings.oneClickContainerOptions.auto")}
+														</SelectItem>
+														<SelectItem value="mp4">
+															{t("settings.oneClickContainerOptions.mp4")}
+														</SelectItem>
+														<SelectItem value="mkv">
+															{t("settings.oneClickContainerOptions.mkv")}
+														</SelectItem>
+														<SelectItem value="webm">
+															{t("settings.oneClickContainerOptions.webm")}
+														</SelectItem>
+														<SelectItem value="original">
+															{t("settings.oneClickContainerOptions.original")}
 														</SelectItem>
 													</SelectContent>
 												</Select>

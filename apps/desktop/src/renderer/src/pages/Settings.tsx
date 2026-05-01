@@ -19,7 +19,7 @@ import {
 import { Switch } from '@renderer/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
-import type { OneClickQualityPreset } from '@shared/types'
+import type { OneClickContainerOption, OneClickQualityPreset } from '@shared/types'
 import {
   buildBrowserCookiesSetting,
   parseBrowserCookiesSetting
@@ -450,6 +450,44 @@ export function Settings() {
                           </SelectItem>
                           <SelectItem value="worst">
                             {t('settings.oneClickQualityOptions.worst')}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </ItemActions>
+                  </Item>
+                  <ItemSeparator />
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>{t('settings.oneClickContainer')}</ItemTitle>
+                      <ItemDescription>
+                        {t('settings.oneClickContainerDescription')}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions>
+                      <Select
+                        onValueChange={(value) =>
+                          handleSettingChange('oneClickContainer', value as OneClickContainerOption)
+                        }
+                        value={settings.oneClickContainer ?? 'auto'}
+                      >
+                        <SelectTrigger className="w-40">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">
+                            {t('settings.oneClickContainerOptions.auto')}
+                          </SelectItem>
+                          <SelectItem value="mp4">
+                            {t('settings.oneClickContainerOptions.mp4')}
+                          </SelectItem>
+                          <SelectItem value="mkv">
+                            {t('settings.oneClickContainerOptions.mkv')}
+                          </SelectItem>
+                          <SelectItem value="webm">
+                            {t('settings.oneClickContainerOptions.webm')}
+                          </SelectItem>
+                          <SelectItem value="original">
+                            {t('settings.oneClickContainerOptions.original')}
                           </SelectItem>
                         </SelectContent>
                       </Select>

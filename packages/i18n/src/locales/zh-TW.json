@@ -500,7 +500,16 @@
       "quit": "結束",
       "showHome": "顯示首頁"
     },
-    "video": "影片偏好"
+    "video": "影片偏好",
+    "oneClickContainer": "容器格式",
+    "oneClickContainerDescription": "選擇一鍵下載的輸出容器格式。自動模式優先 MP4，編碼不相容時回退到 MKV。",
+    "oneClickContainerOptions": {
+      "auto": "自動 (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "原始格式 (yt-dlp 預設)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "訂閱",

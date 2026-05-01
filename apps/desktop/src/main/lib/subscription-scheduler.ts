@@ -542,6 +542,8 @@ export class SubscriptionScheduler extends EventEmitter {
       downloadType === 'video'
         ? buildVideoFormatPreference(settings)
         : buildAudioFormatPreference(settings)
+    const containerFormat =
+      downloadType === 'video' ? (settings.oneClickContainer ?? 'auto') : undefined
     ensureDirectoryExists(downloadDirectory)
 
     const tags = Array.from(new Set([subscription.platform, ...subscription.tags]))
@@ -555,7 +557,8 @@ export class SubscriptionScheduler extends EventEmitter {
         customFilenameTemplate: namingTemplate,
         tags,
         origin: 'subscription',
-        subscriptionId
+        subscriptionId,
+        containerFormat
       })
       if (!started) {
         logger.info('Subscription download already queued', { subscriptionId, itemId, url })

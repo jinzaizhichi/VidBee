@@ -500,7 +500,16 @@
       "quit": "Keluar",
       "showHome": "Tampilkan Beranda"
     },
-    "video": "Preferensi Video"
+    "video": "Preferensi Video",
+    "oneClickContainer": "Wadah",
+    "oneClickContainerDescription": "Pilih wadah keluaran untuk unduhan satu klik. Auto memilih MP4 dan beralih ke MKV jika codec tidak kompatibel.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Asli (bawaan yt-dlp)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "Berlangganan",

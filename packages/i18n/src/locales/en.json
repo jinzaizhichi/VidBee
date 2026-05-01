@@ -480,6 +480,15 @@
       "normal": "Normal (≤720p)",
       "worst": "Worst (≤360p)"
     },
+    "oneClickContainer": "Container",
+    "oneClickContainerDescription": "Pick the output container for one-click downloads. Auto prefers MP4 and falls back to MKV when codecs aren't compatible.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Original (yt-dlp default)",
+      "webm": "WebM"
+    },
     "proxy": "Proxy",
     "proxyDescription": "Proxy server for network requests",
     "proxyPlaceholder": "http://proxy:port",

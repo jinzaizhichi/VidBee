@@ -480,6 +480,15 @@
       "normal": "标准 (≤720p)",
       "worst": "最差 (≤360p)"
     },
+    "oneClickContainer": "容器格式",
+    "oneClickContainerDescription": "选择一键下载的输出容器格式。自动模式优先 MP4，编码不兼容时回落到 MKV。",
+    "oneClickContainerOptions": {
+      "auto": "自动 (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "原始格式 (yt-dlp 默认)",
+      "webm": "WebM"
+    },
     "proxy": "代理",
     "proxyDescription": "网络请求的代理服务器",
     "proxyPlaceholder": "http://proxy:port",

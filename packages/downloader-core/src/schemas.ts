@@ -69,6 +69,14 @@ export const OneClickQualityPresetSchema = z.enum([
   'worst'
 ])
 
+export const OneClickContainerOptionSchema = z.enum([
+  'auto',
+  'mp4',
+  'mkv',
+  'webm',
+  'original'
+])
+
 export const ThemeValueSchema = z.enum(['light', 'dark', 'system'])
 
 export const WebAppSettingsSchema = z.object({
@@ -84,6 +92,7 @@ export const WebAppSettingsSchema = z.object({
   oneClickDownload: z.boolean(),
   oneClickDownloadType: DownloadTypeSchema,
   oneClickQuality: OneClickQualityPresetSchema,
+  oneClickContainer: OneClickContainerOptionSchema.default('auto'),
   closeToTray: z.boolean(),
   autoUpdate: z.boolean(),
   subscriptionOnlyLatestDefault: z.boolean(),
@@ -118,6 +127,7 @@ export const CreateDownloadInputSchema = z.object({
   endTime: z.string().optional(),
   customDownloadPath: z.string().optional(),
   customFilenameTemplate: z.string().optional(),
+  containerFormat: OneClickContainerOptionSchema.optional(),
   settings: DownloadRuntimeSettingsSchema.optional()
 })
 
@@ -190,6 +200,7 @@ export const PlaylistDownloadInputSchema = z.object({
   entryIds: z.array(z.string()).optional(),
   startIndex: z.number().int().positive().optional(),
   endIndex: z.number().int().positive().optional(),
+  containerFormat: OneClickContainerOptionSchema.optional(),
   settings: DownloadRuntimeSettingsSchema.optional()
 })
 

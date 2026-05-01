@@ -484,7 +484,8 @@ class DownloadEngine extends EventEmitter {
         format: options.format,
         audioFormat: options.type === 'audio' ? options.format : undefined,
         customDownloadPath: resolvedDownloadPath,
-        customFilenameTemplate
+        customFilenameTemplate,
+        containerFormat: options.containerFormat
       }
 
       const createdAt = Date.now()

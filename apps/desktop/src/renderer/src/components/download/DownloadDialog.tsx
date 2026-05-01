@@ -271,12 +271,15 @@ export function DownloadDialog({
         settings.oneClickDownloadType === 'video'
           ? buildVideoFormatPreference(settings)
           : buildAudioFormatPreference(settings)
+      const containerFormat =
+        settings.oneClickDownloadType === 'video' ? settings.oneClickContainer : undefined
 
       try {
         const started = await ipcServices.download.startDownload(id, {
           url: trimmedUrl,
           type: settings.oneClickDownloadType,
-          format
+          format,
+          containerFormat
         })
         if (!started) {
           toast.info(t('notifications.downloadAlreadyQueued'))
@@ -514,6 +517,7 @@ export function DownloadDialog({
         downloadType === 'video'
           ? buildVideoFormatPreference(settings)
           : buildAudioFormatPreference(settings)
+      const containerFormat = downloadType === 'video' ? settings.oneClickContainer : undefined
 
       const result = await ipcServices.download.startPlaylistDownload({
         url: trimmedUrl,
@@ -522,7 +526,8 @@ export function DownloadDialog({
         startIndex,
         endIndex,
         entryIds,
-        customDownloadPath: playlistCustomDownloadPath.trim() || undefined
+        customDownloadPath: playlistCustomDownloadPath.trim() || undefined,
+        containerFormat
       })
 
       if (result.totalCount === 0) {

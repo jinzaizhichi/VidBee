@@ -500,7 +500,16 @@
       "quit": "종료",
       "showHome": "홈 표시"
     },
-    "video": "비디오 환경설정"
+    "video": "비디오 환경설정",
+    "oneClickContainer": "컨테이너 형식",
+    "oneClickContainerDescription": "원클릭 다운로드의 출력 컨테이너를 선택하세요. Auto는 MP4를 우선하고 코덱 호환 문제가 있으면 MKV로 대체합니다.",
+    "oneClickContainerOptions": {
+      "auto": "자동 (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "원본 (yt-dlp 기본)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "구독",

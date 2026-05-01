@@ -1,6 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 import { parseBrowserCookiesSetting } from './browser-cookies-setting'
+import type { OneClickContainerOption } from './format-preferences'
 
 export interface YtDlpDownloadSettings {
   downloadPath?: string
@@ -24,6 +25,7 @@ export interface YtDlpDownloadOptions {
   endTime?: string
   customDownloadPath?: string
   customFilenameTemplate?: string
+  containerFormat?: OneClickContainerOption
 }
 
 const YOUTUBE_HOST_SUFFIXES = ['youtube.com', 'youtu.be', 'youtube-nocookie.com'] as const
@@ -245,11 +247,20 @@ export const buildDownloadArgs = (
     if ((options.audioFormatIds?.length ?? 0) > 0 || formatSelector.includes('mergeall')) {
       args.push('--audio-multistreams')
     }
-    // GitHub issues #207 and #129: when ffmpeg cannot mux the streams into
-    // mp4 (HEVC + Hi-Res audio on bilibili, webm fragments on YouTube under
-    // proxies, etc.), let yt-dlp fall back to mkv automatically instead of
-    // surfacing a `Conversion failed` / `Invalid data` error.
-    args.push('--merge-output-format', 'mp4/mkv')
+    // GitHub issues #367 and #351 (2): the user-selected container takes
+    // precedence over the default. `original` skips the flag entirely so
+    // yt-dlp uses its built-in defaults; explicit mp4/mkv/webm forces the
+    // chosen container and remuxes single-source files when possible.
+    // GitHub issues #207 and #129: `auto` keeps the mp4/mkv fallback so
+    // ffmpeg muxing failures (HEVC + Hi-Res audio on bilibili, webm
+    // fragments on YouTube under proxies, etc.) do not abort the download.
+    const container = options.containerFormat ?? 'auto'
+    if (container === 'auto') {
+      args.push('--merge-output-format', 'mp4/mkv')
+    } else if (container !== 'original') {
+      args.push('--merge-output-format', container)
+      args.push('--remux-video', container)
+    }
   } else if (options.type === 'audio') {
     args.push('-f', resolveAudioFormatSelector(options))
   }

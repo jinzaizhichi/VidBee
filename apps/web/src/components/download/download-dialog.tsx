@@ -210,6 +210,10 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 				settings.oneClickDownloadType === "video"
 					? buildVideoFormatPreference(settings)
 					: buildAudioFormatPreference(settings);
+			const containerFormat =
+				settings.oneClickDownloadType === "video"
+					? settings.oneClickContainer
+					: undefined;
 
 			try {
 				await orpcClient.downloads.create({
@@ -218,6 +222,7 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 					format,
 					audioFormat:
 						settings.oneClickDownloadType === "audio" ? "mp3" : undefined,
+					containerFormat,
 					settings: readOrpcDownloadSettings(),
 				});
 
@@ -438,6 +443,8 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 				downloadType === "video"
 					? buildVideoFormatPreference(settings)
 					: buildAudioFormatPreference(settings);
+			const containerFormat =
+				downloadType === "video" ? settings.oneClickContainer : undefined;
 
 			const result = await orpcClient.playlist.download({
 				url: trimmedUrl,
@@ -447,6 +454,7 @@ export function DownloadDialog({ onDownloadsChanged }: DownloadDialogProps) {
 				startIndex: start,
 				endIndex: end,
 				entryIds,
+				containerFormat,
 				settings: readOrpcDownloadSettings(),
 			});
 

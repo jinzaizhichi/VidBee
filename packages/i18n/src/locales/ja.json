@@ -500,7 +500,16 @@
       "quit": "終了",
       "showHome": "ホームを表示"
     },
-    "video": "ビデオ設定"
+    "video": "ビデオ設定",
+    "oneClickContainer": "コンテナ形式",
+    "oneClickContainerDescription": "ワンクリックダウンロードの出力コンテナを選びます。Auto は MP4 を優先し、コーデックが非対応の場合は MKV にフォールバックします。",
+    "oneClickContainerOptions": {
+      "auto": "自動 (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "オリジナル (yt-dlp 既定)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "定期購入",

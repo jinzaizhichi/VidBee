@@ -500,7 +500,16 @@
       "quit": "Выход",
       "showHome": "Показать главную"
     },
-    "video": "Настройки видео"
+    "video": "Настройки видео",
+    "oneClickContainer": "Контейнер",
+    "oneClickContainerDescription": "Выберите контейнер вывода для загрузки в один клик. Auto предпочитает MP4 и переходит к MKV при несовместимых кодеках.",
+    "oneClickContainerOptions": {
+      "auto": "Auto (MP4/MKV)",
+      "mkv": "MKV",
+      "mp4": "MP4",
+      "original": "Оригинал (по умолчанию yt-dlp)",
+      "webm": "WebM"
+    }
   },
   "subscriptions": {
     "title": "Подписки",

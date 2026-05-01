@@ -495,11 +495,15 @@ const startOneClickDownload = async (data: DeepLinkData): Promise<void> => {
         ? buildVideoFormatPreference(settings)
         : buildAudioFormatPreference(settings)
 
+    const containerFormat =
+      downloadType === 'video' ? (settings.oneClickContainer ?? 'auto') : undefined
+
     if (data.type === 'playlist') {
       const result = await downloadEngine.startPlaylistDownload({
         url: data.url,
         type: downloadType,
-        format
+        format,
+        containerFormat
       })
       log.info('One-click playlist download queued:', {
         url: data.url,
@@ -517,7 +521,8 @@ const startOneClickDownload = async (data: DeepLinkData): Promise<void> => {
     const started = downloadEngine.startDownload(downloadId, {
       url: data.url,
       type: downloadType,
-      format
+      format,
+      containerFormat
     })
     if (started) {
       log.info('One-click download queued:', { id: downloadId, url: data.url })

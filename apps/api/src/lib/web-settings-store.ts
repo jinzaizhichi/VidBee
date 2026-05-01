@@ -18,6 +18,7 @@ const defaultWebSettings = WebAppSettingsSchema.parse({
   oneClickDownload: false,
   oneClickDownloadType: 'video',
   oneClickQuality: 'best',
+  oneClickContainer: 'auto',
   closeToTray: true,
   autoUpdate: true,
   subscriptionOnlyLatestDefault: true,
