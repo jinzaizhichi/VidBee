@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "Pilih preset kualitas yang digunakan untuk unduhan satu klik",
     "oneClickQualityOptions": {
       "auto": "Otomatis",
-      "bad": "Buruk",
-      "best": "Terbaik",
-      "good": "Baik",
-      "normal": "Normal",
-      "worst": "Terburuk"
+      "bad": "Buruk (≤480p)",
+      "best": "Terbaik (≤4K)",
+      "good": "Baik (≤1080p)",
+      "normal": "Normal (≤720p)",
+      "worst": "Terburuk (≤360p)"
     },
     "proxy": "Proxy",
     "proxyDescription": "Server proxy untuk permintaan jaringan",

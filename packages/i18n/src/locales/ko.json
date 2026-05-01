@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "원클릭 다운로드에 사용되는 품질 사전 설정을 선택하세요",
     "oneClickQualityOptions": {
       "auto": "자동",
-      "bad": "나쁨",
-      "best": "최고",
-      "good": "좋음",
-      "normal": "보통",
-      "worst": "최악"
+      "bad": "나쁨 (≤480p)",
+      "best": "최고 (≤4K)",
+      "good": "좋음 (≤1080p)",
+      "normal": "보통 (≤720p)",
+      "worst": "최악 (≤360p)"
     },
     "proxy": "프록시",
     "proxyDescription": "네트워크 요청용 프록시 서버",

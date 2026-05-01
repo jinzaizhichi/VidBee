@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "Tek tıklamayla indirme için kullanılan kalite ön ayarını seçin",
     "oneClickQualityOptions": {
       "auto": "Otomatik",
-      "bad": "Kötü",
-      "best": "En iyi",
-      "good": "İyi",
-      "normal": "Normal",
-      "worst": "En kötü"
+      "bad": "Kötü (≤480p)",
+      "best": "En iyi (≤4K)",
+      "good": "İyi (≤1080p)",
+      "normal": "Normal (≤720p)",
+      "worst": "En kötü (≤360p)"
     },
     "proxy": "Vekil",
     "proxyDescription": "Ağ istekleri için vekil sunucusu",

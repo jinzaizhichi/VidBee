@@ -397,8 +397,10 @@ export function DownloadDialog({
     onParseSingle: handleParseSingleUrl
   })
 
+  // The Add URL trigger button is always rendered in the toolbar, so the
+  // shortcut should fire even when the dialog itself is closed.
   useAddUrlShortcut({
-    enabled: open,
+    enabled: true,
     onTrigger: handleOpenAddUrlPopover
   })
 

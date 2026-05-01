@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "Selecciona el ajuste preestablecido de calidad usado para descargas con un clic",
     "oneClickQualityOptions": {
       "auto": "Automático",
-      "bad": "Malo",
-      "best": "Mejor",
-      "good": "Bueno",
-      "normal": "Normal",
-      "worst": "Peor"
+      "bad": "Malo (≤480p)",
+      "best": "Mejor (≤4K)",
+      "good": "Bueno (≤1080p)",
+      "normal": "Normal (≤720p)",
+      "worst": "Peor (≤360p)"
     },
     "proxy": "Proxy",
     "proxyDescription": "Servidor proxy para solicitudes de red",

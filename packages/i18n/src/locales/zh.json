@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "选择用于一键下载的质量预设",
     "oneClickQualityOptions": {
       "auto": "自动",
-      "bad": "较差",
-      "best": "最佳",
-      "good": "良好",
-      "normal": "标准",
-      "worst": "最差"
+      "bad": "较差 (≤480p)",
+      "best": "最佳 (≤4K)",
+      "good": "良好 (≤1080p)",
+      "normal": "标准 (≤720p)",
+      "worst": "最差 (≤360p)"
     },
     "proxy": "代理",
     "proxyDescription": "网络请求的代理服务器",

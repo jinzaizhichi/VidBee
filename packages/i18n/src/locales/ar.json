@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "اختر الإعداد المسبق للجودة المستخدم للتحميلات بنقرة واحدة",
     "oneClickQualityOptions": {
       "auto": "تلقائي",
-      "bad": "سيء",
-      "best": "أفضل",
-      "good": "جيد",
-      "normal": "عادي",
-      "worst": "أسوأ"
+      "bad": "سيء (≤480p)",
+      "best": "أفضل (≤4K)",
+      "good": "جيد (≤1080p)",
+      "normal": "عادي (≤720p)",
+      "worst": "أسوأ (≤360p)"
     },
     "proxy": "الوكيل",
     "proxyDescription": "خادم الوكيل لطلبات الشبكة",

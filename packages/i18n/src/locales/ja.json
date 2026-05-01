@@ -471,11 +471,11 @@
     "oneClickQualityDescription": "ワンクリックダウンロードに使用される品質プリセットを選択",
     "oneClickQualityOptions": {
       "auto": "自動",
-      "bad": "悪い",
-      "best": "最高",
-      "good": "良い",
-      "normal": "通常",
-      "worst": "最悪"
+      "bad": "悪い (≤480p)",
+      "best": "最高 (≤4K)",
+      "good": "良い (≤1080p)",
+      "normal": "通常 (≤720p)",
+      "worst": "最悪 (≤360p)"
     },
     "proxy": "プロキシ",
     "proxyDescription": "ネットワークリクエスト用のプロキシサーバー",
