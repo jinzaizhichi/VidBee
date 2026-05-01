@@ -146,6 +146,13 @@ const CATEGORY_RULES: readonly CategoryRule[] = [
       'forcibly closed by the remote host',
       'failed to resolve',
       'could not resolve host',
+      // GitHub issues #355 / #325: DNS lookup failures surface with a few
+      // platform-specific wordings that the older patterns missed.
+      'name or service not known',
+      'name (or service) not known',
+      'temporary failure in name resolution',
+      'getaddrinfo failed',
+      'errno -2',
       'unable to connect to proxy',
       'unable to download video data',
       'unable to download video subtitles',

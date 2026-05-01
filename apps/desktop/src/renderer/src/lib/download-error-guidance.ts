@@ -5,22 +5,32 @@ interface DownloadErrorGuidanceRule {
 
 const DOWNLOAD_ERROR_GUIDANCE_RULES: DownloadErrorGuidanceRule[] = [
   {
-    // GitHub issues #273 and #334 show users often need a direct next step
-    // instead of the raw yt-dlp stderr for cookie-gated downloads.
+    // GitHub issue #334 (YouTube age-restricted) and the bot-check variant
+    // both require the user to provide signed-in cookies before yt-dlp can
+    // continue. Keep this distinct from secretstorage so the message points
+    // the user at the right setting.
     message:
       'This download needs signed-in cookies. Add browser cookies in Settings, or export a Netscape cookies file and select it there.',
     patterns: [
-      'secretstorage not available',
       'sign in to confirm your age',
       "sign in to confirm you're not a bot",
       'sign in to confirm you’re not a bot'
     ]
   },
   {
-    // GitHub issues #107, #210, #349, and #353 are all the same Windows
-    // browser-cookie failure class and need the same recovery guidance.
+    // GitHub issue #273: the AppImage bundle on Linux has no python
+    // `secretstorage` module, so reading Chromium-family cookies fails even
+    // though the rest of the cookie pipeline works.
     message:
-      'VidBee could not read browser cookies on this machine. Close the browser first, or switch to Firefox cookies or an exported Netscape cookies file.',
+      'VidBee cannot read Chrome/Chromium cookies on this Linux build because the system keyring (secretstorage) is unavailable. Switch to Firefox cookies in Settings, or export a Netscape cookies file and select it there.',
+    patterns: ['secretstorage not available']
+  },
+  {
+    // GitHub issues #362, #364, #363, #361, #360 (and the older long tail of
+    // #107 / #210 / #349 / #353) all surface as Chrome holding the cookies
+    // database open on Windows.
+    message:
+      'VidBee could not copy the Chrome cookies database while Chrome is running. Quit Chrome completely (including background/tray processes) and retry, or switch to Firefox cookies or an exported Netscape cookies file in Settings.',
     patterns: [
       'could not copy chrome cookie database',
       'could not find chrome cookies database',
@@ -29,14 +39,37 @@ const DOWNLOAD_ERROR_GUIDANCE_RULES: DownloadErrorGuidanceRule[] = [
     ]
   },
   {
-    // GitHub issue #348 showed users can pick a cookies file that yt-dlp
-    // cannot decode, so the UI should point them back to a valid export.
+    // GitHub issue #348: users picked Chrome's binary `Cookies` SQLite file
+    // instead of an exported Netscape cookies.txt, which yt-dlp surfaces as
+    // a UTF-8 decode error.
     message:
-      'The selected cookies file is not a valid UTF-8 Netscape cookies export. Re-export the cookies file, then choose the new file in Settings.',
+      'The selected cookies file is not a valid Netscape cookies.txt export — it looks like a binary browser cookies database. Export cookies as a Netscape text file (e.g. with the "Get cookies.txt" extension) and select that file in Settings.',
     patterns: [
       "utf-8' codec can't decode byte",
       'cookies file must be netscape formatted',
       'does not look like a netscape format cookies file'
+    ]
+  },
+  {
+    // GitHub issue #359: YouTube 403 Forbidden. Most users land here because
+    // their cookies have gone stale or the active player_client got blocked.
+    message:
+      'YouTube blocked this request (HTTP 403). Refresh your browser cookies or sign in again, then retry. If the issue persists, try a different network or proxy in Settings.',
+    patterns: ['http error 403: forbidden']
+  },
+  {
+    // GitHub issues #355 and #325: DNS resolution failures almost always
+    // mean a proxy/DNS misconfiguration on the user's side.
+    message:
+      'VidBee could not resolve the host name for this download. Check your network connection, DNS, or proxy settings — if you have a proxy configured, verify it is reachable.',
+    patterns: [
+      'name or service not known',
+      'name (or service) not known',
+      'could not resolve host',
+      'failed to resolve',
+      'temporary failure in name resolution',
+      'getaddrinfo failed',
+      'errno -2'
     ]
   },
   {
@@ -46,10 +79,17 @@ const DOWNLOAD_ERROR_GUIDANCE_RULES: DownloadErrorGuidanceRule[] = [
     patterns: ['requested format is not available']
   },
   {
-    // GitHub issues #129 and #347 are the same post-processing failure class.
+    // GitHub issues #129, #207, and #347 are post-processing / merge
+    // failures. yt-dlp keeps the raw streams on disk after a merge failure.
     message:
-      'Post-processing failed for this download. Retry with metadata and thumbnail embedding turned off, or choose a different format/container.',
-    patterns: ['invalid data found when processing input']
+      'Post-processing or stream merge failed for this download. Retry with a different format or container (e.g. switch to MP4 or pick another quality preset). The raw video and audio files are kept in your download folder so you can merge them manually if needed.',
+    patterns: ['invalid data found when processing input', 'postprocessing: conversion failed!']
+  },
+  {
+    // GitHub issue #326: yt-dlp gave up after exhausting fragment retries.
+    message:
+      'The download failed after multiple retries. Check your network stability or proxy, then retry. For very large videos, choose a lower quality preset to avoid long-running fragment downloads.',
+    patterns: ['more expected. giving up after', 'giving up after']
   },
   {
     // GitHub issue #352 is DRM protected and should be explained directly.

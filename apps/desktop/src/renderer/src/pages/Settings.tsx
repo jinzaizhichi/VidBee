@@ -28,7 +28,7 @@ import { type LanguageCode, languageList, normalizeLanguageCode } from '@vidbee/
 import { useAtom, useSetAtom } from 'jotai'
 import { AlertTriangle } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation } from 'react-router'
 import { toast } from 'sonner'
@@ -50,7 +50,6 @@ export function Settings() {
     valid: boolean
     reason?: string
   }>({ valid: false })
-  const lastAutoDetectBrowser = useRef<string | null>(null)
 
   useEffect(() => {
     try {
@@ -114,9 +113,23 @@ export function Settings() {
   const handleSelectCookiesFile = async () => {
     try {
       const path = await ipcServices.fs.selectFile()
-      if (path) {
-        await handleSettingChange('cookiesPath', path)
+      if (!path) {
+        return
       }
+      // GitHub issue #348: refuse SQLite/binary cookies databases up front so
+      // the user is not left with an opaque UTF-8 decode error at download time.
+      const validation = await ipcServices.fs.validateCookiesFile(path)
+      if (!validation.valid) {
+        const messageKey =
+          validation.reason === 'sqlite'
+            ? 'settings.cookiesFileInvalidSqlite'
+            : validation.reason === 'not-found'
+              ? 'settings.cookiesFileInvalidNotFound'
+              : 'settings.cookiesFileInvalidFormat'
+        toast.error(t(messageKey))
+        return
+      }
+      await handleSettingChange('cookiesPath', path)
     } catch (error) {
       logger.error('Failed to select cookies file:', error)
       toast.error(t('settings.fileSelectError'))
@@ -188,12 +201,13 @@ export function Settings() {
   }, [location.search])
 
   useEffect(() => {
-    const browserChanged = lastAutoDetectBrowser.current !== browserForCookiesValue
-    const shouldAutoDetect =
-      browserForCookiesValue !== 'none' && (browserChanged || !browserCookiesProfileValue)
-
-    if (!shouldAutoDetect) {
-      lastAutoDetectBrowser.current = browserForCookiesValue
+    // GitHub issue #365: only auto-detect when no profile is saved. Earlier
+    // logic also fired whenever the cached browser (held in a ref) differed
+    // from the loaded browser, which happens on every Settings remount (Tab
+    // switch re-mounts the panel and resets the ref to `null`). That
+    // overwrote a user-customized profile path — e.g. the Microsoft Store
+    // Firefox path — back to the default detected path.
+    if (browserForCookiesValue === 'none' || browserCookiesProfileValue) {
       return
     }
 
@@ -202,14 +216,12 @@ export function Settings() {
         const detectedPath =
           await ipcServices.browserCookies.getBrowserProfilePath(browserForCookiesValue)
         const nextProfileValue = detectedPath || ''
-        if (nextProfileValue !== browserCookiesProfileValue) {
+        if (nextProfileValue && nextProfileValue !== browserCookiesProfileValue) {
           const nextValue = buildBrowserCookiesSetting(browserForCookiesValue, nextProfileValue)
           await handleSettingChange('browserForCookies', nextValue)
         }
       } catch (error) {
         logger.error('[Settings] Failed to detect browser profile path:', error)
-      } finally {
-        lastAutoDetectBrowser.current = browserForCookiesValue
       }
     }
 

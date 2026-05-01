@@ -39,6 +39,64 @@ class FileSystemService extends IpcService {
     return result.filePaths[0]
   }
 
+  /**
+   * Validate that the user-picked cookies file is a Netscape-format text file.
+   *
+   * GitHub issue #348: users picked Chrome's binary `Cookies` SQLite database
+   * instead of an exported `cookies.txt`, which only surfaced as an opaque
+   * `'utf-8' codec can't decode byte` error during a download. We sniff the
+   * first chunk of the file so we can refuse the wrong format up front.
+   */
+  @IpcMethod()
+  async validateCookiesFile(
+    _context: IpcContext,
+    filePath: string
+  ): Promise<{ valid: boolean; reason?: 'not-found' | 'sqlite' | 'binary' | 'not-netscape' }> {
+    if (!filePath) {
+      return { valid: false, reason: 'not-found' }
+    }
+
+    const sanitizedPath = this.sanitizePath(filePath)
+    const normalizedPath = path.normalize(sanitizedPath)
+
+    let handle: fs.FileHandle | null = null
+    try {
+      handle = await fs.open(normalizedPath, 'r')
+      const buffer = Buffer.alloc(1024)
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+      const sample = buffer.subarray(0, bytesRead)
+
+      if (sample.length >= 16 && sample.subarray(0, 15).toString('ascii') === 'SQLite format 3') {
+        return { valid: false, reason: 'sqlite' }
+      }
+
+      if (sample.includes(0)) {
+        return { valid: false, reason: 'binary' }
+      }
+
+      const text = sample.toString('utf8')
+      const looksNetscape =
+        text.includes('# Netscape HTTP Cookie File') ||
+        text.includes('# HTTP Cookie File') ||
+        /^[#\s]/.test(text) ||
+        /\t(TRUE|FALSE)\t/i.test(text)
+      if (!looksNetscape) {
+        return { valid: false, reason: 'not-netscape' }
+      }
+
+      return { valid: true }
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException
+      if (err?.code === 'ENOENT') {
+        return { valid: false, reason: 'not-found' }
+      }
+      scopedLoggers.system.error('Failed to validate cookies file:', error)
+      return { valid: false, reason: 'binary' }
+    } finally {
+      await handle?.close().catch(() => {})
+    }
+  }
+
   @IpcMethod()
   getDefaultDownloadPath(_context: IpcContext): string {
     const fallbackPath = path.join(os.homedir(), 'Downloads')
