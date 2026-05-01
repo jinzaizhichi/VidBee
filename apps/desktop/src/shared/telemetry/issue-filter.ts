@@ -15,11 +15,17 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
   'opera does not support profiles',
   'could not find opera cookies database',
   'fresh cookies (not necessarily logged in) are needed',
+  // Sentry issue VIDBEE-77G showed some extractors emit the same guidance
+  // without the "fresh" prefix when cookies are required upstream.
+  'cookies (not necessarily logged in) are needed',
   // Sentry issues VIDBEE-4LN through VIDBEE-4N2 showed local socket policy
   // failures bubbling out of yt-dlp as WinError 10013 noise.
   'winerror 10013',
   'an attempt was made to access a socket in a way forbidden by its access permissions',
   'http error 403: forbidden',
+  // Sentry issues VIDBEE-4AK / VIDBEE-74R showed generic upstream 502 pages
+  // from origin hosts should be treated like other transient 5xx failures.
+  'http error 502: bad gateway',
   // Sentry issue VIDBEE-DE showed Cloudflare can block generic extractor
   // requests with an anti-bot challenge that requires upstream impersonation.
   'cloudflare anti-bot challenge',
@@ -125,6 +131,13 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
   'read timed out',
   'more expected. giving up after',
   'connect etimedout',
+  // Sentry issues VIDBEE-76V / VIDBEE-76U / VIDBEE-76T / VIDBEE-76S /
+  // VIDBEE-76R showed curl can surface upstream resolver, timeout, and TLS
+  // handshake failures with wording that does not match the older snippets.
+  'resolving timed out after',
+  'connection timed out after',
+  'tls connect error',
+  'tlsv1_alert_protocol_version',
   'connection aborted.',
   'forcibly closed by the remote host',
   'failed to resolve',
@@ -137,6 +150,10 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
   'postprocessing: error opening output files: encoder not found',
   'postprocessing: conversion failed!',
   'supported filetypes for thumbnail embedding are',
+  // Sentry issue VIDBEE-1J8 showed Linux browser-cookie extraction can fail
+  // when the local keyring dependency is missing, which is an environment
+  // setup problem rather than a desktop product defect.
+  'secretstorage not available',
   'this format is drm protected',
   'requested site is known to use drm protection',
   'cloudflare anti-bot challenge',
@@ -147,6 +164,9 @@ const DOWNLOAD_OPERATIONAL_PATTERNS = [
   'no space left on device',
   'access is denied',
   'cannot create a file when that file already exists',
+  // Sentry issues VIDBEE-77A / VIDBEE-779 showed some providers reject stale
+  // session state with an upstream "reload page" authorization error.
+  'authorization failed. try to reload page.',
   'the channel is not currently live',
   'no video could be found in this tweet',
   'could not authenticate you',
@@ -264,11 +284,20 @@ interface TelemetryEventTag {
 interface TelemetryEventExceptionValue {
   type?: string
   value?: string
+  stacktrace?: {
+    frames?: TelemetryEventStackFrame[]
+  }
 }
 
 interface TelemetryEventBreadcrumb {
   category?: string
   data?: Record<string, unknown>
+}
+
+interface TelemetryEventStackFrame {
+  filename?: string
+  function?: string
+  module?: string
 }
 
 interface TelemetryEventEntry {
@@ -351,16 +380,6 @@ const inferSourceFromBreadcrumbs = (event: TelemetryEventShape): string => {
 }
 
 /**
- * Resolve the best telemetry source from direct tags or serialized breadcrumbs.
- *
- * @param event The telemetry event candidate.
- * @returns The normalized source tag.
- */
-const resolveEventSource = (event: TelemetryEventShape): string => {
-  return readSourceTag(event.tags) || inferSourceFromBreadcrumbs(event)
-}
-
-/**
  * Check whether any normalized message contains one of the known patterns.
  *
  * @param messages The normalized telemetry messages.
@@ -407,6 +426,18 @@ const hasAutoUpdaterRequestBreadcrumb = (event: TelemetryEventShape): boolean =>
     const normalizedUrl = normalizeTelemetryText(url)
     return AUTO_UPDATER_REQUEST_PATTERNS.some((pattern) => normalizedUrl.includes(pattern))
   })
+}
+
+/**
+ * Check whether serialized event messages mention a known updater request URL.
+ *
+ * @param messages The normalized telemetry messages.
+ * @returns True when the updater release URLs appear in the serialized payload.
+ */
+const hasAutoUpdaterRequestMessage = (messages: string[]): boolean => {
+  return messages.some((message) =>
+    AUTO_UPDATER_REQUEST_PATTERNS.some((pattern) => message.includes(pattern))
+  )
 }
 
 /**
@@ -483,6 +514,98 @@ const collectEventMessages = (event: TelemetryEventShape): string[] => {
 }
 
 /**
+ * Collect normalized stack-frame hints from serialized exception payloads.
+ *
+ * @param event The telemetry event candidate.
+ * @returns Flattened normalized frame filename, function, and module text.
+ */
+const collectExceptionFrameHints = (event: TelemetryEventShape): string[] => {
+  const hints = new Set<string>()
+
+  for (const value of event.exception?.values ?? []) {
+    for (const frame of value.stacktrace?.frames ?? []) {
+      const normalizedFilename = normalizeTelemetryText(frame.filename)
+      const normalizedFunction = normalizeTelemetryText(frame.function)
+      const normalizedModule = normalizeTelemetryText(frame.module)
+
+      if (normalizedFilename) {
+        hints.add(normalizedFilename)
+      }
+      if (normalizedFunction) {
+        hints.add(normalizedFunction)
+      }
+      if (normalizedModule) {
+        hints.add(normalizedModule)
+      }
+      if (normalizedFilename && normalizedFunction) {
+        hints.add(`${normalizedFilename} ${normalizedFunction}`)
+      }
+    }
+  }
+
+  return [...hints]
+}
+
+/**
+ * Infer the telemetry source from serialized exception stack frames and messages.
+ *
+ * @param event The telemetry event candidate.
+ * @param messages The normalized event messages.
+ * @returns The inferred source tag.
+ */
+const inferSourceFromExceptionFrames = (event: TelemetryEventShape, messages: string[]): string => {
+  const frameHints = collectExceptionFrameHints(event)
+
+  // Sentry issues VIDBEE-23C / VIDBEE-6Q1 / VIDBEE-6QB showed serialized
+  // yt-dlp errors can lose the explicit source tag even though the stack still
+  // points at YTDlpWrap.createError.
+  if (
+    frameHints.some(
+      (hint) =>
+        hint.includes('yt-dlp-wrap-plus/dist/index.js') || hint.includes('ytdlpwrap.createerror')
+    )
+  ) {
+    return 'download-engine'
+  }
+
+  // Sentry issues VIDBEE-6M0 / VIDBEE-6M1 / VIDBEE-6M2 / VIDBEE-6LV showed
+  // RSS parser outages can also arrive without the serialized source tag.
+  if (frameHints.some((hint) => hint.includes('rss-parser/lib/parser.js'))) {
+    return 'subscription.check'
+  }
+
+  // Sentry issues VIDBEE-13C / VIDBEE-17 / VIDBEE-1H / VIDBEE-1S showed
+  // updater transport failures can lose both the source tag and breadcrumb
+  // URL, but still retain Electron loader frames or GitHub release URLs.
+  if (
+    frameHints.some(
+      (hint) =>
+        hint.includes('node:electron/js2c/browser_init') && hint.includes('simpleurlloaderwrapper')
+    ) ||
+    hasAutoUpdaterRequestMessage(messages)
+  ) {
+    return 'auto-updater'
+  }
+
+  return ''
+}
+
+/**
+ * Resolve the best telemetry source from tags, breadcrumbs, or serialized exception hints.
+ *
+ * @param event The telemetry event candidate.
+ * @param messages The normalized event messages.
+ * @returns The normalized source tag.
+ */
+const resolveEventSource = (event: TelemetryEventShape, messages: string[]): string => {
+  return (
+    readSourceTag(event.tags) ||
+    inferSourceFromBreadcrumbs(event) ||
+    inferSourceFromExceptionFrames(event, messages)
+  )
+}
+
+/**
  * Determine whether a telemetry payload is an expected operational issue.
  *
  * @param messages The normalized telemetry message fragments.
@@ -534,8 +657,8 @@ export const shouldSkipTelemetryError = (
  * @returns True when the event is expected operational noise.
  */
 export const shouldDropTelemetryEvent = (event: TelemetryEventShape): boolean => {
-  const source = resolveEventSource(event)
   const messages = collectEventMessages(event)
+  const source = resolveEventSource(event, messages)
   if (isOperationalTelemetry(messages, source)) {
     return true
   }
