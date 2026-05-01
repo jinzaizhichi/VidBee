@@ -59,6 +59,10 @@ Modern, clean interface with intuitive operations. One-click pause/resume/retry,
 
 Automatically subscribe to RSS feeds and auto-download new videos in the background from your favorite creators across YouTube, TikTok, and more. Set up RSS subscriptions once, and VidBee will automatically download new uploads without manual intervention, perfect for keeping up with your favorite channels and creators.
 
+### 🎞️ Configurable Output Containers
+
+Pick between **Auto (MP4/MKV)**, **MP4**, **MKV**, **WebM**, or yt-dlp's **Original** defaults for one-click downloads — no more wondering whether you'll get an MP4 or a WebM. See [Formats & Containers](https://docs.vidbee.org/formats) for the full breakdown.
+
 ## 🌐 Supported Sites
 
 VidBee supports 1000+ video and audio platforms through yt-dlp. For the complete list of supported sites, visit [https://vidbee.org/supported-sites/](https://vidbee.org/supported-sites/)
