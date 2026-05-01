@@ -6,13 +6,18 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './i18n'
-import { captureRendererException, initGlitchTipRenderer } from './lib/glitchtip'
+import {
+  addRendererBreadcrumb,
+  captureRendererException,
+  initGlitchTipRenderer
+} from './lib/glitchtip'
 import { logger } from './lib/logger'
 
 initGlitchTipRenderer()
 
 // Setup global error handlers
 setupGlobalErrorHandlers()
+setupLongTaskObserver()
 
 // Get app version asynchronously
 let appVersion: string | undefined
@@ -103,6 +108,49 @@ function setupGlobalErrorHandlers(): void {
       }
     }
   })
+}
+
+// Sentry issue VIDBEE-H8: Electron's renderer-unresponsive events arrive without
+// a JS stack, so we record long synchronous tasks (>200ms) as breadcrumbs.
+// They surface in the next captured event, giving us a hint at which
+// component / IPC path is blocking the main thread.
+function setupLongTaskObserver(): void {
+  const PerformanceObserverCtor =
+    typeof window === 'undefined' ? undefined : window.PerformanceObserver
+  if (!PerformanceObserverCtor) {
+    return
+  }
+
+  const supportedTypes = (PerformanceObserverCtor as { supportedEntryTypes?: readonly string[] })
+    .supportedEntryTypes
+  if (!supportedTypes?.includes('longtask')) {
+    return
+  }
+
+  const LONG_TASK_BREADCRUMB_THRESHOLD_MS = 200
+  try {
+    const observer = new PerformanceObserverCtor((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.duration < LONG_TASK_BREADCRUMB_THRESHOLD_MS) {
+          continue
+        }
+        addRendererBreadcrumb(
+          'performance',
+          'Long renderer task',
+          {
+            duration_ms: Math.round(entry.duration),
+            entry_type: entry.entryType,
+            name: entry.name,
+            start_time_ms: Math.round(entry.startTime)
+          },
+          'warning'
+        )
+      }
+    })
+    observer.observe({ entryTypes: ['longtask'] })
+  } catch (error) {
+    logger.warn('Failed to install longtask PerformanceObserver:', error)
+  }
 }
 
 const rootElement = document.getElementById('root')

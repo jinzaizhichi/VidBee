@@ -24,6 +24,7 @@ import {
 import { settingsManager } from '../settings'
 import { scopedLoggers } from '../utils/logger'
 import { resolvePathWithHome } from '../utils/path-helpers'
+import { createBoundedTextBuffer } from './bounded-output-buffer'
 import {
   appendJsRuntimeArgs,
   appendYouTubeSafeExtractorArgs,
@@ -108,18 +109,20 @@ class DownloadEngine extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       const process = ytdlp.exec(args)
-      let stdout = ''
-      let stderr = ''
+      const stdoutBuffer = createBoundedTextBuffer()
+      const stderrBuffer = createBoundedTextBuffer()
 
       process.ytDlpProcess?.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString()
+        stdoutBuffer.append(data)
       })
 
       process.ytDlpProcess?.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        stderrBuffer.append(data)
       })
 
       process.on('close', (code) => {
+        const stdout = stdoutBuffer.get()
+        const stderr = stderrBuffer.get()
         if (code === 0 && stdout) {
           try {
             const info = parseVideoInfoPayload(stdout)
@@ -186,18 +189,20 @@ class DownloadEngine extends EventEmitter {
       }
 
       const process = ytdlp.exec(args)
-      let stdout = ''
-      let stderr = ''
+      const stdoutBuffer = createBoundedTextBuffer()
+      const stderrBuffer = createBoundedTextBuffer()
 
       process.ytDlpProcess?.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString()
+        stdoutBuffer.append(data)
       })
 
       process.ytDlpProcess?.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        stderrBuffer.append(data)
       })
 
       process.on('close', (code) => {
+        const stdout = stdoutBuffer.get()
+        const stderr = stderrBuffer.get()
         if (code === 0 && stdout) {
           try {
             const info = parseVideoInfoPayload(stdout)
@@ -328,18 +333,20 @@ class DownloadEngine extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       const process = ytdlp.exec(args)
-      let stdout = ''
-      let stderr = ''
+      const stdoutBuffer = createBoundedTextBuffer()
+      const stderrBuffer = createBoundedTextBuffer()
 
       process.ytDlpProcess?.stdout?.on('data', (data: Buffer) => {
-        stdout += data.toString()
+        stdoutBuffer.append(data)
       })
 
       process.ytDlpProcess?.stderr?.on('data', (data: Buffer) => {
-        stderr += data.toString()
+        stderrBuffer.append(data)
       })
 
       process.on('close', (code) => {
+        const stdout = stdoutBuffer.get()
+        const stderr = stderrBuffer.get()
         if (code === 0 && stdout) {
           try {
             const parsed = JSON.parse(stdout) as {
@@ -677,7 +684,7 @@ class DownloadEngine extends EventEmitter {
     let totalParts = estimateProgressParts(options)
     let completedParts = 0
     let lastPercent = 0
-    let ytDlpLog = ''
+    const ytDlpLogBuffer = createBoundedTextBuffer()
     let logFlushTimer: NodeJS.Timeout | null = null
     let lastFlushedLog = ''
 
@@ -689,6 +696,7 @@ class DownloadEngine extends EventEmitter {
         clearTimeout(logFlushTimer)
         logFlushTimer = null
       }
+      const ytDlpLog = ytDlpLogBuffer.get()
       if (ytDlpLog === lastFlushedLog) {
         return
       }
@@ -714,7 +722,7 @@ class DownloadEngine extends EventEmitter {
       if (!text) {
         return
       }
-      ytDlpLog += normalizeLogChunk(text)
+      ytDlpLogBuffer.append(normalizeLogChunk(text))
       scheduleLogUpdate()
     }
 

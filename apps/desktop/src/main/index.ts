@@ -13,6 +13,7 @@ import {
 import log from 'electron-log/main'
 import { autoUpdater } from 'electron-updater'
 import appIcon from '../../build/icon.png?asset'
+import { classifyDownloadError } from '../shared/telemetry/yt-dlp-error-classifier'
 import {
   buildAudioFormatPreference,
   buildVideoFormatPreference
@@ -301,23 +302,68 @@ function setupRendererErrorHandling(): void {
     return
   }
 
-  // Handle uncaught exceptions in renderer process
+  // Sentry issue VIDBEE-H8: Electron emits `unresponsive` for transient hangs
+  // too. Only capture freezes that actually exceed the 5s threshold so the
+  // signal isn't drowned out by short main-thread blips, and report the
+  // measured duration so we can tell a 6s blip apart from a 60s lockup.
+  const RENDERER_UNRESPONSIVE_REPORT_MS = 5000
+  let unresponsiveSince: number | null = null
+  let unresponsiveTimer: NodeJS.Timeout | null = null
+  let unresponsiveReported = false
+
   mainWindow.webContents.on('unresponsive', () => {
     log.error('Renderer process became unresponsive')
-    captureMainMessage(
-      'Renderer process became unresponsive',
-      {
-        tags: {
-          source: 'renderer.unresponsive'
-        }
-      },
-      'warning'
-    )
+    addMainBreadcrumb('renderer', 'Renderer process became unresponsive', undefined, 'warning')
+    unresponsiveSince = Date.now()
+    unresponsiveReported = false
+    if (unresponsiveTimer) {
+      clearTimeout(unresponsiveTimer)
+    }
+    unresponsiveTimer = setTimeout(() => {
+      unresponsiveTimer = null
+      if (unresponsiveSince === null) {
+        return
+      }
+      unresponsiveReported = true
+      captureMainMessage(
+        'Renderer process unresponsive (sustained)',
+        {
+          extra: {
+            unresponsive_ms_at_capture: Date.now() - unresponsiveSince,
+            threshold_ms: RENDERER_UNRESPONSIVE_REPORT_MS
+          },
+          tags: {
+            source: 'renderer.unresponsive'
+          }
+        },
+        'warning'
+      )
+    }, RENDERER_UNRESPONSIVE_REPORT_MS)
   })
 
   mainWindow.webContents.on('responsive', () => {
+    const duration = unresponsiveSince === null ? null : Date.now() - unresponsiveSince
     log.info('Renderer process became responsive again')
-    addMainBreadcrumb('renderer', 'Renderer process became responsive again')
+    addMainBreadcrumb('renderer', 'Renderer process became responsive again', {
+      unresponsive_ms: duration ?? undefined,
+      reported_to_sentry: unresponsiveReported
+    })
+    if (unresponsiveTimer) {
+      clearTimeout(unresponsiveTimer)
+      unresponsiveTimer = null
+    }
+    if (unresponsiveReported && duration !== null) {
+      captureMainMessage(
+        'Renderer process recovered from sustained unresponsiveness',
+        {
+          extra: { unresponsive_ms: duration },
+          tags: { source: 'renderer.unresponsive' }
+        },
+        'info'
+      )
+    }
+    unresponsiveSince = null
+    unresponsiveReported = false
   })
 
   // Listen for renderer errors via IPC
@@ -394,13 +440,20 @@ function setupDownloadEvents(): void {
   })
 
   downloadEngine.on('download-error', (id: string, error: Error) => {
-    const glitchTipEventId = captureMainException(error, {
-      fingerprint: ['download-error', error.name, error.message],
-      tags: {
-        download_id: id,
-        source: 'download-engine'
-      }
-    })
+    // Sentry issue VIDBEE-68: classify the error so operational failures (yt-dlp
+    // postprocessing, upstream HTTP / DRM / cookies) drop out of telemetry and
+    // genuine bugs get a stable category tag.
+    const { category, isOperational } = classifyDownloadError(error)
+    const glitchTipEventId = isOperational
+      ? undefined
+      : captureMainException(error, {
+          fingerprint: ['download-error', category, error.name, error.message],
+          tags: {
+            download_id: id,
+            download_error_category: category,
+            source: 'download-engine'
+          }
+        })
     if (glitchTipEventId) {
       downloadEngine.updateDownloadInfo(id, { glitchTipEventId })
     }

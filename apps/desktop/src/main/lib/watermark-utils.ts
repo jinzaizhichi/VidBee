@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { scopedLoggers } from '../utils/logger'
+import { createBoundedTextBuffer } from './bounded-output-buffer'
 
 const WATERMARK_TITLE_MAX = 28
 const WATERMARK_AUTHOR_MAX = 60
@@ -175,10 +176,10 @@ const resolveWatermarkOutputPaths = (inputPath: string) => {
 const runFfmpeg = async (ffmpegPath: string, args: string[]): Promise<void> => {
   await new Promise<void>((resolve, reject) => {
     const process = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] })
-    let stderr = ''
+    const stderrBuffer = createBoundedTextBuffer()
 
     process.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString()
+      stderrBuffer.append(data)
     })
 
     process.on('error', (error) => {
@@ -190,7 +191,9 @@ const runFfmpeg = async (ffmpegPath: string, args: string[]): Promise<void> => {
         resolve()
         return
       }
-      reject(new Error(`ffmpeg exited with code ${code ?? 'unknown'}: ${stderr.trim()}`))
+      reject(
+        new Error(`ffmpeg exited with code ${code ?? 'unknown'}: ${stderrBuffer.get().trim()}`)
+      )
     })
   })
 }

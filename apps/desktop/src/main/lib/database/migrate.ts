@@ -21,15 +21,19 @@ const LEGACY_MIGRATIONS = [
     createdAt: 1_768_961_568_903,
     hash: '820a72164d76d265455f1a8642e27af0beaae03b2878df2726bfcc3f3105ca04',
     isApplied: (sqlite: Database.Database): boolean =>
-      hasColumn(sqlite, 'download_history', 'yt_dlp_command')
+      hasColumn(sqlite, 'download_history', 'yt_dlp_command'),
+    addsColumns: [{ table: 'download_history', column: 'yt_dlp_command' }]
   },
   {
     createdAt: 1_768_961_585_359,
     hash: 'b52ea0e29bd5d00f68db555d33153432c66dbd286c0594e85d40b20094e941e8',
     isApplied: (sqlite: Database.Database): boolean =>
-      hasColumn(sqlite, 'download_history', 'yt_dlp_log')
+      hasColumn(sqlite, 'download_history', 'yt_dlp_log'),
+    addsColumns: [{ table: 'download_history', column: 'yt_dlp_log' }]
   }
 ] as const
+
+type LegacyMigration = (typeof LEGACY_MIGRATIONS)[number]
 
 /**
  * Check whether a SQLite table already exists.
@@ -118,14 +122,73 @@ export const reconcileLegacyMigrationState = (sqlite: Database.Database): void =
   }
 }
 
+/**
+ * Extract the failing column name from a SQLite duplicate-column error.
+ *
+ * @param error The error thrown by drizzle's migrator.
+ * @returns The duplicate column name when the error matches, otherwise null.
+ */
+const matchDuplicateColumnError = (error: unknown): string | null => {
+  if (!(error instanceof Error)) {
+    return null
+  }
+  const match = error.message.match(/duplicate column name:\s*([\w]+)/i)
+  return match?.[1] ?? null
+}
+
+/**
+ * Find a legacy migration that adds the given column so we can mark it
+ * applied without re-running its ALTER TABLE.
+ *
+ * @param columnName The duplicate column reported by SQLite.
+ * @returns The matching legacy migration entry when known.
+ */
+const findLegacyMigrationForColumn = (columnName: string): LegacyMigration | null => {
+  for (const migration of LEGACY_MIGRATIONS) {
+    if (!('addsColumns' in migration)) {
+      continue
+    }
+    const hit = migration.addsColumns?.some((entry) => entry.column === columnName)
+    if (hit) {
+      return migration
+    }
+  }
+  return null
+}
+
 export const runMigrations = (database: BetterSQLite3Database): void => {
   const migrationsFolder = resolveMigrationsFolder()
   if (!migrationsFolder) {
     throw new Error('drizzle migrations folder not found for desktop')
   }
 
-  reconcileLegacyMigrationState(getSqliteConnection(database))
-  migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
+  const sqlite = getSqliteConnection(database)
+  reconcileLegacyMigrationState(sqlite)
+
+  try {
+    migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
+  } catch (error) {
+    // Sentry issue VIDBEE-16: legacy 1.3.x desktops still hit
+    // `SqliteError: duplicate column name: <col>` when the local DB had the
+    // column added by an older raw-ALTER path but our journal hash for that
+    // migration doesn't match what reconcileLegacyMigrationState backfills.
+    // Treat the migration as already applied: backfill its hash and retry.
+    const duplicateColumn = matchDuplicateColumnError(error)
+    if (!duplicateColumn) {
+      throw error
+    }
+
+    const legacy = findLegacyMigrationForColumn(duplicateColumn)
+    if (!legacy) {
+      throw error
+    }
+
+    sqlite
+      .prepare(`INSERT OR IGNORE INTO "${MIGRATIONS_TABLE}" (hash, created_at) VALUES (?, ?)`)
+      .run(legacy.hash, legacy.createdAt)
+
+    migrate(database, { migrationsFolder, migrationsTable: MIGRATIONS_TABLE })
+  }
 }
 
 const resolveMigrationsFolder = (): string | null => {
