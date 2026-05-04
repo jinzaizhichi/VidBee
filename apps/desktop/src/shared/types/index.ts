@@ -89,11 +89,29 @@ export interface DownloadItem {
   subscriptionId?: string
   // Download-specific format info
   selectedFormat?: VideoFormat
+  /**
+   * yt-dlp's resolved format id (e.g. `30080+30280`). Differs from
+   * `selectedFormat.format_id` when the chain fell back to best-available;
+   * the row uses this to render a "fell back" hint.
+   */
+  resolvedFormatId?: string
   // Playlist context (optional)
   playlistId?: string
   playlistTitle?: string
   playlistIndex?: number
   playlistSize?: number
+  // NEX-131 §10.A.5 projection passthrough fields. Optional so renderer
+  // components that haven't opted in keep working unchanged. internalStatus
+  // is the underlying 8-state TaskStatus; subStatus carries 'paused' or
+  // 'retry-scheduled' (mapped onto pending in the legacy enum); statusReason
+  // distinguishes 'crash-recovery' / 'user' / etc.
+  internalStatus?: string
+  subStatus?: string
+  statusReason?: string | null
+  nextRetryAt?: number | null
+  attempt?: number
+  maxAttempts?: number
+  errorCategory?: string
 }
 
 export interface SubscriptionFeedItem {
@@ -115,6 +133,7 @@ export interface DownloadHistoryItem {
   status: DownloadStatus
   downloadPath?: string
   savedFileName?: string
+  resolvedFormatId?: string
   fileSize?: number
   duration?: number
   downloadedAt: number
@@ -155,6 +174,21 @@ export interface DownloadOptions {
   tags?: string[]
   origin?: 'manual' | 'subscription'
   subscriptionId?: string
+  /**
+   * Pre-fetched videoInfo metadata so the renderer's optimistic row
+   * survives the kernel's snapshot-changed → download:updated round-trip.
+   * Without these, the projection re-derives `title` from the URL and
+   * `thumbnail`/`description`/etc. arrive as undefined, which spreads
+   * over the optimistic row and wipes its metadata on the first tick.
+   */
+  title?: string
+  thumbnail?: string
+  description?: string
+  channel?: string
+  uploader?: string
+  viewCount?: number
+  duration?: number
+  selectedFormat?: VideoFormat
 }
 
 export interface PlaylistEntry {

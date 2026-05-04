@@ -1,8 +1,3 @@
-import {
-  type DownloadHistoryInsert,
-  type DownloadHistoryRow,
-  downloadHistoryTable
-} from '@vidbee/db/history'
 import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const subscriptionsTable = sqliteTable('subscriptions', {
@@ -56,4 +51,7 @@ export type SubscriptionInsert = typeof subscriptionsTable.$inferInsert
 export type SubscriptionItemRow = typeof subscriptionItemsTable.$inferSelect
 export type SubscriptionItemInsert = typeof subscriptionItemsTable.$inferInsert
 
-export { type DownloadHistoryInsert, type DownloadHistoryRow, downloadHistoryTable }
+// `download_history` (the legacy table) is no longer surfaced from this
+// schema after NEX-131; the canonical task store is task-queue's `tasks`.
+// The legacy rows are still readable via the one-shot importer in
+// `task-queue-migrate.ts`, which queries the table by raw SQL.

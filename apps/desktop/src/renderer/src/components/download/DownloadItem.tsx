@@ -102,6 +102,25 @@ const getFormatLabel = (download: DownloadRecord): string | undefined => {
   return savedExt ? savedExt.toUpperCase() : undefined
 }
 
+/**
+ * True when yt-dlp's resolved format id does not include the user-picked
+ * format id as a `+`-separated component. Used to surface the fallback
+ * notice on completed rows so users know their preferred quality wasn't
+ * actually delivered.
+ */
+const didFallbackFromPick = (download: DownloadRecord): boolean => {
+  const picked = download.selectedFormat?.format_id
+  const resolved = download.resolvedFormatId
+  if (!(picked && resolved)) {
+    return false
+  }
+  const parts = resolved
+    .split('+')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  return !parts.includes(picked)
+}
+
 const getQualityLabel = (download: DownloadRecord): string | undefined => {
   const format = download.selectedFormat
   if (!format) {
@@ -302,6 +321,14 @@ export function DownloadItem({ download, isSelected = false, onToggleSelect }: D
         format: formatId,
         audioFormat: download.type === 'video' ? 'best' : undefined,
         customDownloadPath,
+        title: download.title,
+        thumbnail: download.thumbnail,
+        description: download.description,
+        channel: download.channel,
+        uploader: download.uploader,
+        viewCount: download.viewCount,
+        duration: download.duration,
+        selectedFormat: download.selectedFormat,
         tags: download.tags,
         origin: download.origin,
         subscriptionId: download.subscriptionId
@@ -1115,6 +1142,22 @@ export function DownloadItem({ download, isSelected = false, onToggleSelect }: D
                     <Progress className="h-1 w-full" value={download.progress.percent} />
                   </div>
                 )}
+
+              {/* Format-fallback hint: shown on completed rows when yt-dlp's
+                  resolved format id does not contain the user-picked id (e.g.
+                  user picked Bilibili 4K but only 1080p actually streamed). */}
+              {download.status === 'completed' && didFallbackFromPick(download) && (
+                <div className="flex flex-col gap-0.5 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1.5">
+                  <span className="font-medium text-amber-600 text-xs dark:text-amber-400">
+                    {t('download.formatFallbackTitle')}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {t('download.formatFallbackHint', {
+                      resolved: download.resolvedFormatId
+                    })}
+                  </span>
+                </div>
+              )}
 
               {/* Error message */}
               {download.status === 'error' && download.error && (

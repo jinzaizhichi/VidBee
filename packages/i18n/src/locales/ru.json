@@ -217,7 +217,9 @@
       "formatNote": "Примечание формата",
       "protocol": "Протокол",
       "subscription": "Подписка"
-    }
+    },
+    "formatFallbackTitle": "Selected format unavailable",
+    "formatFallbackHint": "Your pick was not deliverable, so VidBee fell back to best available ({{resolved}})."
   },
   "error": {
     "title": "Что-то пошло не так",

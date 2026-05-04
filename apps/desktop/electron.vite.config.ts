@@ -6,7 +6,13 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import Icons from 'unplugin-icons/vite'
 import { loadEnv } from 'vite'
 
-const bundledWorkspacePackages = ['@vidbee/db', '@vidbee/downloader-core', '@vidbee/i18n']
+const bundledWorkspacePackages = [
+  '@vidbee/db',
+  '@vidbee/downloader-core',
+  '@vidbee/i18n',
+  '@vidbee/task-queue',
+  '@vidbee/subscriptions-core'
+]
 const packageJson = JSON.parse(
   readFileSync(resolve(import.meta.dirname, 'package.json'), 'utf8')
 ) as {

@@ -8,7 +8,7 @@ import type {
   VideoInfo,
   VideoInfoCommandResult
 } from '../../../shared/types'
-import { downloadEngine } from '../../lib/download-engine'
+import { downloadEngine } from '../../lib/download-facade'
 
 class DownloadService extends IpcService {
   static readonly groupName = 'download'

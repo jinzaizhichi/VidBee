@@ -47,6 +47,7 @@ const toHistoryRecord = (item: DownloadHistoryItem): DownloadRecord => ({
   playlistIndex: item.playlistIndex,
   playlistSize: item.playlistSize,
   savedFileName: item.savedFileName,
+  resolvedFormatId: item.resolvedFormatId,
   entryType: 'history',
   downloadedAt: item.downloadedAt
 })
@@ -69,7 +70,16 @@ export const updateDownloadAtom = atom(
     if (!existing) {
       return
     }
-    downloads.set(key, { ...existing, ...update.changes })
+    // The facade emits the full projected DownloadItem on snapshot-changed,
+    // so an undefined `title`/`thumbnail`/etc. (when the kernel doesn't have
+    // metadata stashed on TaskInput) would otherwise stomp the optimistic
+    // row. Filter undefined so existing values stick around. status/error
+    // can still be set explicitly via narrow `changes` from `handleStarted`/
+    // `handleCompleted`/`handleError`.
+    const filtered = Object.fromEntries(
+      Object.entries(update.changes).filter(([, value]) => value !== undefined)
+    ) as Partial<DownloadItem>
+    downloads.set(key, { ...existing, ...filtered })
     set(downloadRecordsAtom, downloads)
   }
 )

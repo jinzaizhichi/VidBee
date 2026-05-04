@@ -1,245 +1,119 @@
-import { eq, inArray } from 'drizzle-orm'
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
-import log from 'electron-log/main'
+/**
+ * Read-only history facade backed by the shared task-queue `tasks` table
+ * (NEX-131 acceptance: "history-manager 不再持有独立 schema；旧 history 表只读
+ * fallback").
+ *
+ * The legacy DB-backed `HistoryManager` class is gone. All history reads
+ * walk `TaskQueueAPI.list()` and project terminal rows through
+ * `projectTaskForRendererHistory` so renderer/IPC consumers see exactly the
+ * same `DownloadHistoryItem` shape they always have.
+ *
+ * Mutations:
+ *   - `addHistoryItem` is a no-op: creating tasks now goes through
+ *     `downloadEngine.startDownload()` (which in turn calls
+ *     `taskQueue.add()`); nothing else legitimately needs to write to
+ *     history. We log an info breadcrumb so any straggling caller is loud.
+ *   - `removeHistoryItem` / `removeHistoryItems` / `removeHistoryByPlaylistId` /
+ *     `clearHistory` delegate to `taskQueue.removeFromHistory`, the kernel's
+ *     single supported history-mutation entry point.
+ */
+import type { Task } from '@vidbee/task-queue'
+
 import type { DownloadHistoryItem } from '../../shared/types'
-import { getDatabaseConnection } from './database'
-import {
-  type DownloadHistoryInsert,
-  type DownloadHistoryRow,
-  downloadHistoryTable
-} from './database/schema'
+import { scopedLoggers } from '../utils/logger'
 
-const logger = log.scope('history-manager')
+import { projectTaskForRendererHistory } from './projection'
+import { getDesktopTaskQueue } from './task-queue-host'
 
-const TAG_SEPARATOR = '\n'
+const logger = scopedLoggers.engine
 
-const sanitizeList = (values?: string[]): string[] => {
-  if (!values || values.length === 0) {
-    return []
-  }
-  return values
-    .map((value) => value.trim())
-    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index)
-}
+const TERMINAL: ReadonlySet<Task['status']> = new Set(['completed', 'failed', 'cancelled'])
 
-const serializeTags = (values?: string[]): string | null => {
-  const sanitized = sanitizeList(values)
-  return sanitized.length > 0 ? sanitized.join(TAG_SEPARATOR) : null
-}
-
-const parseTags = (value: string | null): string[] | undefined => {
-  if (!value) {
-    return undefined
-  }
-  const parsed = value
-    .split(TAG_SEPARATOR)
-    .map((tag) => tag.trim())
-    .filter((tag, index, array) => tag.length > 0 && array.indexOf(tag) === index)
-  return parsed.length > 0 ? parsed : undefined
-}
-
-class HistoryManager {
-  private db: BetterSQLite3Database | null = null
-  private history: Map<string, DownloadHistoryItem> = new Map()
-
-  constructor() {
-    this.initialize()
-  }
-
-  private initialize(): void {
-    try {
-      this.getDatabase()
-      this.loadHistoryFromDatabase()
-    } catch (error) {
-      logger.error('history-db failed to initialize', error)
-    }
-  }
-
-  private getDatabase(): BetterSQLite3Database {
-    if (this.db) {
-      return this.db
-    }
-    const { db } = getDatabaseConnection()
-    this.db = db
-    return this.db
-  }
-
-  private loadHistoryFromDatabase(): void {
-    try {
-      const database = this.getDatabase()
-      const rows = database.select().from(downloadHistoryTable).all()
-      this.history = new Map(rows.map((row) => [row.id, this.mapRowToItem(row)]))
-    } catch (error) {
-      logger.error('history-db failed to load rows', error)
-      this.history = new Map()
-    }
-  }
-
-  private normalizeItem(item: DownloadHistoryItem): DownloadHistoryItem {
-    const fallbackTimestamp = Date.now()
-    const downloadedAt = item.downloadedAt ?? item.completedAt ?? fallbackTimestamp
-    const status = item.status ?? 'pending'
-
-    return {
-      ...item,
-      status,
-      downloadedAt
-    }
-  }
-
-  private mapItemToInsert(item: DownloadHistoryItem): DownloadHistoryInsert {
-    return {
-      id: item.id,
-      url: item.url,
-      title: item.title,
-      thumbnail: item.thumbnail ?? null,
-      type: item.type,
-      status: item.status,
-      downloadPath: item.downloadPath ?? null,
-      savedFileName: item.savedFileName ?? null,
-      fileSize: item.fileSize ?? null,
-      duration: item.duration ?? null,
-      downloadedAt: item.downloadedAt,
-      completedAt: item.completedAt ?? null,
-      sortKey: item.completedAt ?? item.downloadedAt,
-      error: item.error ?? null,
-      ytDlpCommand: item.ytDlpCommand ?? null,
-      ytDlpLog: item.ytDlpLog ?? null,
-      description: item.description ?? null,
-      channel: item.channel ?? null,
-      uploader: item.uploader ?? null,
-      viewCount: item.viewCount ?? null,
-      tags: serializeTags(item.tags) ?? null,
-      origin: item.origin ?? null,
-      subscriptionId: item.subscriptionId ?? null,
-      selectedFormat: item.selectedFormat ? JSON.stringify(item.selectedFormat) : null,
-      playlistId: item.playlistId ?? null,
-      playlistTitle: item.playlistTitle ?? null,
-      playlistIndex: item.playlistIndex ?? null,
-      playlistSize: item.playlistSize ?? null
-    }
-  }
-
-  private mapItemToUpdate(payload: DownloadHistoryInsert): Omit<DownloadHistoryInsert, 'id'> {
-    const { id: _id, ...rest } = payload
-    return rest
-  }
-
-  private mapRowToItem(row: DownloadHistoryRow): DownloadHistoryItem {
-    let selectedFormat: DownloadHistoryItem['selectedFormat']
-    if (row.selectedFormat) {
-      try {
-        selectedFormat = JSON.parse(row.selectedFormat) as DownloadHistoryItem['selectedFormat']
-      } catch (error) {
-        logger.warn('history-db failed to parse stored selectedFormat', { id: row.id, error })
+const allTerminalTasks = (): Task[] => {
+  const queue = getDesktopTaskQueue()
+  const all: Task[] = []
+  let cursor: string | null = null
+  do {
+    const page = queue.list({ limit: 200, cursor })
+    for (const t of page.tasks) {
+      if (TERMINAL.has(t.status)) {
+        all.push(t)
       }
     }
+    cursor = page.nextCursor
+  } while (cursor)
+  return all
+}
 
-    const tags = parseTags(row.tags ?? null)
-
-    return {
-      id: row.id,
-      url: row.url,
-      title: row.title,
-      thumbnail: row.thumbnail ?? undefined,
-      type: row.type as DownloadHistoryItem['type'],
-      status: row.status as DownloadHistoryItem['status'],
-      downloadPath: row.downloadPath ?? undefined,
-      savedFileName: row.savedFileName ?? undefined,
-      fileSize: row.fileSize ?? undefined,
-      duration: row.duration ?? undefined,
-      downloadedAt: row.downloadedAt,
-      completedAt: row.completedAt ?? undefined,
-      error: row.error ?? undefined,
-      ytDlpCommand: row.ytDlpCommand ?? undefined,
-      ytDlpLog: row.ytDlpLog ?? undefined,
-      glitchTipEventId: undefined,
-      description: row.description ?? undefined,
-      channel: row.channel ?? undefined,
-      uploader: row.uploader ?? undefined,
-      viewCount: row.viewCount ?? undefined,
-      tags,
-      origin: row.origin ? (row.origin as DownloadHistoryItem['origin']) : undefined,
-      subscriptionId: row.subscriptionId ?? undefined,
-      selectedFormat,
-      playlistId: row.playlistId ?? undefined,
-      playlistTitle: row.playlistTitle ?? undefined,
-      playlistIndex: row.playlistIndex ?? undefined,
-      playlistSize: row.playlistSize ?? undefined
+const projectAll = (): DownloadHistoryItem[] => {
+  const items: DownloadHistoryItem[] = []
+  for (const task of allTerminalTasks()) {
+    const projected = projectTaskForRendererHistory(task)
+    if (projected) {
+      items.push(projected)
     }
   }
+  return items.sort((a, b) => {
+    const aTime = a.completedAt ?? a.downloadedAt
+    const bTime = b.completedAt ?? b.downloadedAt
+    return bTime - aTime
+  })
+}
 
-  addHistoryItem(item: DownloadHistoryItem): void {
-    const normalized = this.normalizeItem(item)
-    const insertPayload = this.mapItemToInsert(normalized)
-    try {
-      const database = this.getDatabase()
-      database
-        .insert(downloadHistoryTable)
-        .values(insertPayload)
-        .onConflictDoUpdate({
-          target: downloadHistoryTable.id,
-          set: this.mapItemToUpdate(insertPayload)
-        })
-        .run()
-      this.history.set(normalized.id, normalized)
-    } catch (error) {
-      logger.error('history-db failed to upsert item', { id: normalized.id, error })
-    }
-  }
-
+class HistoryFacade {
   getHistory(): DownloadHistoryItem[] {
-    return Array.from(this.history.values()).sort((a, b) => {
-      const aTime = a.completedAt ?? a.downloadedAt
-      const bTime = b.completedAt ?? b.downloadedAt
-      return bTime - aTime
-    })
+    return projectAll()
   }
 
   getHistoryById(id: string): DownloadHistoryItem | undefined {
-    return this.history.get(id)
+    const task = getDesktopTaskQueue().get(id)
+    if (!(task && TERMINAL.has(task.status))) {
+      return undefined
+    }
+    return projectTaskForRendererHistory(task) ?? undefined
+  }
+
+  /**
+   * Legacy `addHistoryItem` is no longer the way to record history; tasks
+   * appear in this view automatically once they reach a terminal state.
+   * We keep the method so the IPC contract stays compatible and log a
+   * breadcrumb if anything still calls it.
+   */
+  addHistoryItem(item: DownloadHistoryItem): void {
+    logger.warn('history-manager.addHistoryItem is a no-op after NEX-131', {
+      id: item.id,
+      url: item.url,
+      status: item.status
+    })
   }
 
   removeHistoryItem(id: string): boolean {
-    try {
-      const database = this.getDatabase()
-      const result = database
-        .delete(downloadHistoryTable)
-        .where(eq(downloadHistoryTable.id, id))
-        .run()
-      const removedFromMap = this.history.delete(id)
-      return result.changes > 0 || removedFromMap
-    } catch (error) {
-      logger.error('history-db failed to delete item', { id, error })
+    const queue = getDesktopTaskQueue()
+    const task = queue.get(id)
+    if (!(task && TERMINAL.has(task.status))) {
       return false
     }
+    void queue.removeFromHistory(id).catch((err) => {
+      logger.error('history-manager: removeHistoryItem failed', { id, err })
+    })
+    return true
   }
 
   removeHistoryItems(ids: string[]): number {
-    const uniqueIds = Array.from(new Set(ids)).filter((id) => id.trim().length > 0)
-    if (uniqueIds.length === 0) {
-      return 0
-    }
-    let removedCount = 0
-    try {
-      const database = this.getDatabase()
-      const result = database
-        .delete(downloadHistoryTable)
-        .where(inArray(downloadHistoryTable.id, uniqueIds))
-        .run()
-      for (const id of uniqueIds) {
-        if (this.history.delete(id)) {
-          removedCount++
-        }
+    const queue = getDesktopTaskQueue()
+    const unique = Array.from(new Set(ids.map((s) => s.trim()).filter((s) => s.length > 0)))
+    let removed = 0
+    for (const id of unique) {
+      const task = queue.get(id)
+      if (!(task && TERMINAL.has(task.status))) {
+        continue
       }
-      if ((result.changes ?? 0) > removedCount) {
-        removedCount = result.changes ?? removedCount
-      }
-      return removedCount
-    } catch (error) {
-      logger.error('history-db failed to delete items', { count: uniqueIds.length, error })
-      return removedCount
+      void queue.removeFromHistory(id).catch((err) => {
+        logger.error('history-manager: removeHistoryItems failed', { id, err })
+      })
+      removed += 1
     }
+    return removed
   }
 
   removeHistoryByPlaylistId(playlistId: string): number {
@@ -247,60 +121,29 @@ class HistoryManager {
     if (!normalized) {
       return 0
     }
-    let removedCount = 0
-    try {
-      const database = this.getDatabase()
-      const result = database
-        .delete(downloadHistoryTable)
-        .where(eq(downloadHistoryTable.playlistId, normalized))
-        .run()
-      for (const [id, item] of this.history.entries()) {
-        if (item.playlistId === normalized) {
-          this.history.delete(id)
-          removedCount++
-        }
+    const queue = getDesktopTaskQueue()
+    let removed = 0
+    for (const task of allTerminalTasks()) {
+      if (task.input.playlistId !== normalized) {
+        continue
       }
-      if ((result.changes ?? 0) > removedCount) {
-        removedCount = result.changes ?? removedCount
-      }
-      return removedCount
-    } catch (error) {
-      logger.error('history-db failed to delete playlist items', { playlistId: normalized, error })
-      return removedCount
+      void queue.removeFromHistory(task.id).catch((err) => {
+        logger.error('history-manager: removeHistoryByPlaylistId failed', {
+          id: task.id,
+          err
+        })
+      })
+      removed += 1
     }
+    return removed
   }
 
   clearHistory(): void {
-    try {
-      const database = this.getDatabase()
-      database.delete(downloadHistoryTable).run()
-      this.history.clear()
-    } catch (error) {
-      logger.error('history-db failed to clear items', error)
-    }
-  }
-
-  clearHistoryByStatus(status: DownloadHistoryItem['status']): number {
-    let removedCount = 0
-    try {
-      const database = this.getDatabase()
-      const result = database
-        .delete(downloadHistoryTable)
-        .where(eq(downloadHistoryTable.status, status))
-        .run()
-      for (const [id, item] of this.history.entries()) {
-        if (item.status === status) {
-          this.history.delete(id)
-          removedCount++
-        }
-      }
-      if ((result.changes ?? 0) > removedCount) {
-        removedCount = result.changes ?? removedCount
-      }
-      return removedCount
-    } catch (error) {
-      logger.error('history-db failed to clear items by status', { status, error })
-      return removedCount
+    const queue = getDesktopTaskQueue()
+    for (const task of allTerminalTasks()) {
+      void queue.removeFromHistory(task.id).catch((err) => {
+        logger.error('history-manager: clearHistory failed', { id: task.id, err })
+      })
     }
   }
 
@@ -311,37 +154,46 @@ class HistoryManager {
     cancelled: number
     total: number
   } {
-    const counts = {
-      active: 0,
-      completed: 0,
-      error: 0,
-      cancelled: 0,
-      total: this.history.size
-    }
-
-    for (const item of this.history.values()) {
-      if (item.status === 'completed') {
-        counts.completed++
-      } else if (item.status === 'error') {
-        counts.error++
-      } else if (item.status === 'cancelled') {
-        counts.cancelled++
+    const counts = { active: 0, completed: 0, error: 0, cancelled: 0, total: 0 }
+    for (const task of allTerminalTasks()) {
+      counts.total += 1
+      if (task.status === 'completed') {
+        counts.completed += 1
+      } else if (task.status === 'failed') {
+        counts.error += 1
+      } else if (task.status === 'cancelled') {
+        counts.cancelled += 1
       } else {
-        counts.active++
+        counts.active += 1
       }
     }
-
     return counts
   }
 
+  /**
+   * Used by `subscriptions-host` to dedupe RSS items against existing
+   * history. Walks completed tasks (only completed counts as "already
+   * downloaded"; failed/cancelled are not considered duplicates so the
+   * scheduler can retry them).
+   */
   hasHistoryForUrl(url: string): boolean {
-    for (const item of this.history.values()) {
-      if (item.url === url) {
-        return true
-      }
+    const target = url.trim()
+    if (!target) {
+      return false
     }
+    const queue = getDesktopTaskQueue()
+    let cursor: string | null = null
+    do {
+      const page = queue.list({ status: 'completed', limit: 200, cursor })
+      for (const t of page.tasks) {
+        if (t.input.url === target) {
+          return true
+        }
+      }
+      cursor = page.nextCursor
+    } while (cursor)
     return false
   }
 }
 
-export const historyManager = new HistoryManager()
+export const historyManager = new HistoryFacade()

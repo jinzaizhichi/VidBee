@@ -217,7 +217,9 @@
       "formatNote": "Nota de formato",
       "protocol": "Protocolo",
       "subscription": "Suscripción"
-    }
+    },
+    "formatFallbackTitle": "Selected format unavailable",
+    "formatFallbackHint": "Your pick was not deliverable, so VidBee fell back to best available ({{resolved}})."
   },
   "error": {
     "title": "Algo salió mal",

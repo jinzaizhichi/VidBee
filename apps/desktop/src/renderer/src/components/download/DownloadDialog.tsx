@@ -4,11 +4,15 @@ import { Checkbox } from '@renderer/components/ui/checkbox'
 import { DownloadDialogLayout } from '@renderer/components/ui/download-dialog-layout'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
-import type { PlaylistInfo, VideoFormat } from '@shared/types'
+import type { PlaylistInfo, VideoFormat, VideoInfo } from '@shared/types'
 import {
   buildAudioFormatPreference,
   buildVideoFormatPreference
 } from '@shared/utils/format-preferences'
+import {
+  buildVideoInfoDownloadMetadata,
+  pickOneClickSelectedFormat
+} from '@shared/utils/video-info-metadata'
 import { isPlaylistLikeUrl } from '@vidbee/ui/lib/url-kind'
 import { useAddUrlInteraction } from '@vidbee/ui/lib/use-add-url-interaction'
 import { useAddUrlShortcut } from '@vidbee/ui/lib/use-add-url-shortcut'
@@ -49,21 +53,27 @@ const resolvePreferredAudioExt = (videoExt: string | undefined): string | undefi
   return undefined
 }
 
+// Final fallback so a single-format pick degrades to best-available instead of
+// hard-failing with "Requested format is not available". Bilibili lists premium
+// tiers (4K / 1080p高码率) when cookies are present even for accounts that
+// cannot actually fetch them; yt-dlp then errors at download time. The chain
+// below is the same one buildVideoFormatPreference uses for one-click.
+const SINGLE_FORMAT_FALLBACK = 'bestvideo+bestaudio/best'
+
 const buildSingleVideoFormatSelector = (
   formatId: string,
   format: VideoFormat | undefined
 ): string => {
   if (!format || isMuxedVideoFormat(format)) {
-    return formatId
+    return `${formatId}/${SINGLE_FORMAT_FALLBACK}`
   }
 
   const preferredAudioExt = resolvePreferredAudioExt(format.ext)
   if (!preferredAudioExt) {
-    return `${formatId}+bestaudio`
+    return `${formatId}+bestaudio/${SINGLE_FORMAT_FALLBACK}`
   }
 
-  // Prefer same-container audio and keep a fallback when not available.
-  return `${formatId}+bestaudio[ext=${preferredAudioExt}]/${formatId}+bestaudio`
+  return `${formatId}+bestaudio[ext=${preferredAudioExt}]/${formatId}+bestaudio/${SINGLE_FORMAT_FALLBACK}`
 }
 
 interface DownloadDialogProps {
@@ -256,14 +266,36 @@ export function DownloadDialog({
       }
 
       const id = `download_${Date.now()}_${Math.random().toString(36).slice(7)}`
+      let oneClickVideoInfo: VideoInfo | null = null
+
+      try {
+        oneClickVideoInfo = await ipcServices.download.getVideoInfo(trimmedUrl)
+      } catch (error) {
+        console.warn('Failed to fetch one-click video info before queueing:', error)
+      }
+
+      const downloadTargetUrl =
+        resolveDownloadTargetUrl({
+          fallbackUrl: trimmedUrl,
+          webpageUrl: oneClickVideoInfo?.webpage_url
+        }) ?? trimmedUrl
+      const metadata = buildVideoInfoDownloadMetadata(oneClickVideoInfo)
+      const selectedFormat = pickOneClickSelectedFormat(oneClickVideoInfo, settings)
 
       const downloadItem = {
         id,
-        url: trimmedUrl,
-        title: t('download.fetchingVideoInfo'),
+        url: downloadTargetUrl,
+        title: metadata.title || t('download.fetchingVideoInfo'),
+        thumbnail: metadata.thumbnail,
         type: settings.oneClickDownloadType,
         status: 'pending' as const,
         progress: { percent: 0 },
+        duration: metadata.duration,
+        description: metadata.description,
+        channel: metadata.channel,
+        uploader: metadata.uploader,
+        viewCount: metadata.viewCount,
+        selectedFormat,
         createdAt: Date.now()
       }
 
@@ -276,10 +308,12 @@ export function DownloadDialog({
 
       try {
         const started = await ipcServices.download.startDownload(id, {
-          url: trimmedUrl,
+          url: downloadTargetUrl,
           type: settings.oneClickDownloadType,
           format,
-          containerFormat
+          containerFormat,
+          ...metadata,
+          selectedFormat
         })
         if (!started) {
           toast.info(t('notifications.downloadAlreadyQueued'))
@@ -604,25 +638,32 @@ export function DownloadDialog({
     }
     const id = `download_${Date.now()}_${Math.random().toString(36).slice(7)}`
 
-    const downloadItem = {
-      id,
-      url: downloadTargetUrl,
-      title: singleVideoState.title || videoInfo.title || t('download.fetchingVideoInfo'),
-      thumbnail: videoInfo.thumbnail,
-      type,
-      status: 'pending' as const,
-      progress: { percent: 0 },
-      duration: videoInfo.duration,
-      description: videoInfo.description,
-      channel: videoInfo.extractor_key,
-      uploader: videoInfo.extractor_key,
-      createdAt: Date.now()
-    }
-
     const selectedVideoFormat =
       type === 'video'
         ? (videoInfo.formats || []).find((format) => format.format_id === selectedFormat)
         : undefined
+    const selectedAudioFormat =
+      type === 'audio'
+        ? (videoInfo.formats || []).find((format) => format.format_id === selectedFormat)
+        : undefined
+    const selectedDownloadFormat = selectedVideoFormat ?? selectedAudioFormat
+    const metadata = buildVideoInfoDownloadMetadata(videoInfo)
+    const downloadItem = {
+      id,
+      url: downloadTargetUrl,
+      title: singleVideoState.title || metadata.title || t('download.fetchingVideoInfo'),
+      thumbnail: metadata.thumbnail,
+      type,
+      status: 'pending' as const,
+      progress: { percent: 0 },
+      duration: metadata.duration,
+      description: metadata.description,
+      channel: metadata.channel,
+      uploader: metadata.uploader,
+      viewCount: metadata.viewCount,
+      selectedFormat: selectedDownloadFormat,
+      createdAt: Date.now()
+    }
     const resolvedFormat =
       type === 'video'
         ? buildSingleVideoFormatSelector(selectedFormat, selectedVideoFormat)
@@ -633,7 +674,12 @@ export function DownloadDialog({
       type,
       format: resolvedFormat || undefined,
       audioFormat: type === 'video' && isMuxedVideoFormat(selectedVideoFormat) ? '' : undefined,
-      customDownloadPath: singleVideoState.customDownloadPath.trim() || undefined
+      customDownloadPath: singleVideoState.customDownloadPath.trim() || undefined,
+      // Pass renderer-fetched videoInfo through so the kernel's projection
+      // round-trips it back instead of clobbering the optimistic row.
+      ...metadata,
+      title: singleVideoState.title || metadata.title,
+      selectedFormat: selectedDownloadFormat
     }
 
     try {

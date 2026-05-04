@@ -18,9 +18,13 @@ import {
   buildAudioFormatPreference,
   buildVideoFormatPreference
 } from '../shared/utils/format-preferences'
+import {
+  buildVideoInfoDownloadMetadata,
+  pickOneClickSelectedFormat
+} from '../shared/utils/video-info-metadata'
 import { configureLogger } from './config/logger-config'
 import { services } from './ipc'
-import { downloadEngine } from './lib/download-engine'
+import { downloadEngine } from './lib/download-facade'
 import { ffmpegManager } from './lib/ffmpeg-manager'
 import {
   addMainBreadcrumb,
@@ -29,14 +33,26 @@ import {
   initGlitchTipMain
 } from './lib/glitchtip'
 import { initializeOptionalTool } from './lib/startup-dependencies'
-import { subscriptionManager } from './lib/subscription-manager'
-import { subscriptionScheduler } from './lib/subscription-scheduler'
+import {
+  getDesktopSubscriptions,
+  listDesktopSubscriptionsSnapshot,
+  startDesktopSubscriptions,
+  stopDesktopSubscriptions
+} from './lib/subscriptions-host'
+import { runDesktopTaskQueueMigration } from './lib/task-queue-migrate'
 import { ytdlpManager } from './lib/ytdlp-manager'
 import { startExtensionApiServer, stopExtensionApiServer } from './local-api'
 import { settingsManager } from './settings'
 import { createTray, destroyTray } from './tray'
 import { applyAutoLaunchSetting } from './utils/auto-launch'
 import { applyDockVisibility } from './utils/dock'
+
+// NEX-131 §5.4: tray-only mode. Set when launched via the CLI / autostart so
+// the main window stays hidden until the user clicks the tray icon.
+const isBackgroundLaunch = (argv: string[]): boolean =>
+  argv.some((arg) => arg === '--background' || arg === '--from-cli')
+
+const BACKGROUND_MODE = isBackgroundLaunch(process.argv)
 
 // Initialize electron-log for main process
 log.initialize()
@@ -203,14 +219,20 @@ const handleDeepLinkArgv = (argv: string[]): void => {
   }
 }
 
-subscriptionManager.on('subscriptions:updated', (subscriptions) => {
-  sendToRenderer('subscriptions:updated', subscriptions)
+// NEX-132 Phase B: bridge `SubscriptionsApi.on('changed')` → renderer's
+// legacy `subscriptions:updated` IPC event so the existing UI keeps working
+// while it migrates to task-queue-derived subscription item state.
+getDesktopSubscriptions().on('changed', () => {
+  void listDesktopSubscriptionsSnapshot()
+    .then((snapshot) => sendToRenderer('subscriptions:updated', snapshot))
+    .catch((err) => log.warn('Failed to broadcast subscriptions:updated:', err))
 })
 
 export function createWindow(): void {
   const isMac = process.platform === 'darwin'
   const isWindows = process.platform === 'win32'
-  const shouldStartHidden = isWindows && app.getLoginItemSettings().wasOpenedAtLogin
+  const shouldStartHidden =
+    BACKGROUND_MODE || (isWindows && app.getLoginItemSettings().wasOpenedAtLogin)
 
   const windowOptions: BrowserWindowConstructorOptions = {
     width: 1200,
@@ -285,7 +307,9 @@ export function createWindow(): void {
   }
 
   mainWindow.webContents.on('did-finish-load', () => {
-    sendToRenderer('subscriptions:updated', subscriptionManager.getAll())
+    void listDesktopSubscriptionsSnapshot()
+      .then((snapshot) => sendToRenderer('subscriptions:updated', snapshot))
+      .catch((err) => log.warn('Failed to send initial subscriptions snapshot:', err))
     isRendererReady = true
     flushPendingDeepLinks()
   })
@@ -518,24 +542,42 @@ const startOneClickDownload = async (data: DeepLinkData): Promise<void> => {
     }
 
     const downloadId = createDownloadId()
+    let downloadUrl = data.url
+    let metadata = {}
+
+    try {
+      const info = await downloadEngine.getVideoInfo(data.url)
+      downloadUrl = info.webpage_url?.trim() || data.url
+      metadata = {
+        ...buildVideoInfoDownloadMetadata(info),
+        selectedFormat: pickOneClickSelectedFormat(info, {
+          oneClickDownloadType: downloadType,
+          oneClickQuality: settings.oneClickQuality
+        })
+      }
+    } catch (error) {
+      log.warn('Failed to fetch one-click video info before queueing:', error)
+    }
+
     const started = downloadEngine.startDownload(downloadId, {
-      url: data.url,
+      url: downloadUrl,
       type: downloadType,
       format,
-      containerFormat
+      containerFormat,
+      ...metadata
     })
     if (started) {
-      log.info('One-click download queued:', { id: downloadId, url: data.url })
+      log.info('One-click download queued:', { id: downloadId, url: downloadUrl })
       addMainBreadcrumb('download', 'One-click download queued', {
         downloadId,
         type: data.type,
-        url: data.url
+        url: downloadUrl
       })
     } else {
-      log.info('One-click download already queued:', { id: downloadId, url: data.url })
+      log.info('One-click download already queued:', { id: downloadId, url: downloadUrl })
       addMainBreadcrumb('download', 'One-click download was already queued', {
         downloadId,
-        url: data.url
+        url: downloadUrl
       })
     }
   } catch (error) {
@@ -754,7 +796,21 @@ app.whenReady().then(async () => {
     flushPendingOneClickDownloads()
   }
 
+  // NEX-131 A段: copy any pre-existing download-session.json + legacy
+  // download_history rows into the new task-queue tasks table. Idempotent;
+  // safe to run on every boot. Non-fatal if it fails.
+  try {
+    runDesktopTaskQueueMigration()
+  } catch (err) {
+    log.warn('Desktop task-queue migration failed:', err)
+  }
+
   await startExtensionApiServer()
+
+  if (BACKGROUND_MODE) {
+    addMainBreadcrumb('app', 'Started in --background tray-only mode')
+    log.info('Desktop launched with --background; main window will stay hidden')
+  }
 
   applyAutoLaunchSetting(settingsManager.get('launchAtLogin'))
 
@@ -765,7 +821,11 @@ app.whenReady().then(async () => {
   // Create system tray
   createTray()
 
-  subscriptionScheduler.start()
+  try {
+    await startDesktopSubscriptions()
+  } catch (err) {
+    log.warn('Desktop subscriptions failed to start:', err)
+  }
 
   handleDeepLinkArgv(process.argv)
 
@@ -816,6 +876,9 @@ app.on('window-all-closed', () => {
 app.on('will-quit', () => {
   destroyTray()
   void stopExtensionApiServer()
+  void stopDesktopSubscriptions().catch((err) =>
+    log.warn('Failed to stop desktop subscriptions on quit:', err)
+  )
 })
 
 // In this file you can include the rest of your app's specific main process

@@ -1,6 +1,6 @@
 import { type IpcContext, IpcMethod, IpcService } from 'electron-ipc-decorator'
 import type { AppSettings } from '../../../shared/types'
-import { downloadEngine } from '../../lib/download-engine'
+import { downloadEngine } from '../../lib/download-facade'
 import {
   applyBatchSettingSideEffects,
   applySingleSettingSideEffects
