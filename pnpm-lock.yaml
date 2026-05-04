@@ -18,6 +18,7 @@ overrides:
   react-router: '>=7.12.0 <8'
   h3: '>=2.0.1-rc.18'
   h3-v2: npm:h3@>=2.0.1-rc.18
+  better-sqlite3: '>=12.9.0 <13'
   drizzle-orm: '>=0.45.2 <0.46'
   fastify: '>=5.8.5 <6'
   minimatch: '>=10.2.3'
@@ -76,12 +77,18 @@ importers:
       '@vidbee/downloader-core':
         specifier: workspace:*
         version: link:../../packages/downloader-core
+      '@vidbee/subscriptions-core':
+        specifier: workspace:*
+        version: link:../../packages/subscriptions-core
+      '@vidbee/task-queue':
+        specifier: workspace:*
+        version: link:../../packages/task-queue
       better-sqlite3:
-        specifier: ^12.4.1
-        version: 12.4.1
+        specifier: '>=12.9.0 <13'
+        version: 12.9.0
       drizzle-orm:
         specifier: '>=0.45.2 <0.46'
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.4.1)
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.9.0)
       fastify:
         specifier: '>=5.8.5 <6'
         version: 5.8.5
@@ -104,6 +111,38 @@ importers:
       ultracite:
         specifier: 7.1.5
         version: 7.1.5
+
+  apps/cli:
+    dependencies:
+      yt-dlp-wrap-plus:
+        specifier: ^2.3.20
+        version: 2.3.20
+    devDependencies:
+      '@types/node':
+        specifier: ^22.18.6
+        version: 22.18.12
+      '@vidbee/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@vidbee/downloader-core':
+        specifier: workspace:*
+        version: link:../../packages/downloader-core
+      '@vidbee/task-queue':
+        specifier: workspace:*
+        version: link:../../packages/task-queue
+      esbuild:
+        specifier: '>=0.25.0'
+        version: 0.27.3
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.12)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+    optionalDependencies:
+      better-sqlite3:
+        specifier: '>=12.9.0 <13'
+        version: 12.9.0
 
   apps/desktop:
     dependencies:
@@ -190,13 +229,19 @@ importers:
         version: link:../../packages/db
       '@vidbee/downloader-core':
         specifier: workspace:*
-        version: link:../../packages/downloader-core
+        version: file:packages/downloader-core(@opentelemetry/api@1.9.1)
       '@vidbee/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@vidbee/subscriptions-core':
+        specifier: workspace:*
+        version: link:../../packages/subscriptions-core
+      '@vidbee/task-queue':
+        specifier: workspace:*
+        version: link:../../packages/task-queue
       better-sqlite3:
-        specifier: ^12.4.1
-        version: 12.4.1
+        specifier: '>=12.9.0 <13'
+        version: 12.9.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -211,7 +256,7 @@ importers:
         version: 1.11.18
       drizzle-orm:
         specifier: '>=0.45.2 <0.46'
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.4.1)
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.9.0)
       electron-ipc-decorator:
         specifier: ^0.2.0
         version: 0.2.0(electron@39.8.9)
@@ -536,7 +581,7 @@ importers:
     dependencies:
       drizzle-orm:
         specifier: '>=0.45.2 <0.46'
-        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.4.1)
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.9.0)
     devDependencies:
       '@opentelemetry/api':
         specifier: ^1.9.0
@@ -545,8 +590,8 @@ importers:
         specifier: ^7.6.13
         version: 7.6.13
       better-sqlite3:
-        specifier: ^12.4.1
-        version: 12.4.1
+        specifier: '>=12.9.0 <13'
+        version: 12.9.0
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -556,6 +601,9 @@ importers:
       '@orpc/contract':
         specifier: '>=1.14.0 <2'
         version: 1.14.0(@opentelemetry/api@1.9.1)
+      '@vidbee/task-queue':
+        specifier: workspace:*
+        version: link:../task-queue
       yt-dlp-wrap-plus:
         specifier: ^2.3.20
         version: 2.3.20
@@ -582,6 +630,68 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+
+  packages/subscriptions-core:
+    dependencies:
+      '@orpc/contract':
+        specifier: '>=1.14.0 <2'
+        version: 1.14.0(@opentelemetry/api@1.9.1)
+      '@vidbee/db':
+        specifier: workspace:*
+        version: link:../db
+      '@vidbee/task-queue':
+        specifier: workspace:*
+        version: link:../task-queue
+      better-sqlite3:
+        specifier: '>=12.9.0 <13'
+        version: 12.9.0
+      drizzle-orm:
+        specifier: '>=0.45.2 <0.46'
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.9.0)
+      rss-parser:
+        specifier: ^3.13.0
+        version: 3.13.0
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+      zod:
+        specifier: ^4.1.11
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.18.6
+        version: 22.18.12
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.12)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
+
+  packages/task-queue:
+    dependencies:
+      '@orpc/contract':
+        specifier: '>=1.14.0 <2'
+        version: 1.14.0(@opentelemetry/api@1.9.1)
+      '@vidbee/db':
+        specifier: workspace:*
+        version: link:../db
+      ulid:
+        specifier: ^2.3.0
+        version: 2.4.0
+      zod:
+        specifier: ^4.1.11
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.18.6
+        version: 22.18.12
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.12)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/ui:
     dependencies:
@@ -3500,6 +3610,9 @@ packages:
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
 
+  '@vidbee/downloader-core@file:packages/downloader-core':
+    resolution: {directory: packages/downloader-core, type: directory}
+
   '@vitejs/plugin-react@5.0.4':
     resolution: {integrity: sha512-La0KD0vGkVkSk6K+piWDKRUyg8Rl5iAIKRMH0vMJI0Eg47bq1eOxmoObAaQG37WMW9MSyk7Cs8EIWwJC1PtzKA==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -3774,9 +3887,9 @@ packages:
     resolution: {integrity: sha512-UYmTpOBwgPScZpS4A+YbapwWuBwasxvO/2IOHArSsAhL/+ZdmATBXTex3t+l2hXwLVYK382ibr/nKoY9GKe86w==}
     hasBin: true
 
-  better-sqlite3@12.4.1:
-    resolution: {integrity: sha512-3yVdyZhklTiNrtg+4WqHpJpFDd+WHTg2oM7UcR80GqL05AOV0xEJzc6qNvFYoEtE+hRp1n9MpN6/+4yhlGkDXQ==}
-    engines: {node: 20.x || 22.x || 23.x || 24.x}
+  better-sqlite3@12.9.0:
+    resolution: {integrity: sha512-wqUv4Gm3toFpHDQmaKD4QhZm3g1DjUBI0yzS4UBl6lElUmXFYdTQmmEDpAFa5o8FiFiymURypEnfVHzILKaxqQ==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
 
   bidi-js@1.0.3:
     resolution: {integrity: sha512-RKshQI1R3YQ+n9YJz2QQ147P66ELpa1FQEg20Dk8oW9t2KgLbpDLLp9aGZ7y8WHSshDknG0bknqGw5/tyCs5tw==}
@@ -4384,7 +4497,7 @@ packages:
       '@upstash/redis': '>=1.34.7'
       '@vercel/postgres': '>=0.8.0'
       '@xata.io/client': '*'
-      better-sqlite3: '>=7'
+      better-sqlite3: '>=12.9.0 <13'
       bun-types: '*'
       expo-sqlite: '>=14.0.0'
       gel: '>=2'
@@ -4801,6 +4914,11 @@ packages:
     resolution: {integrity: sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg==}
     engines: {node: '>= 8'}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -4955,6 +5073,10 @@ packages:
   glob@13.0.3:
     resolution: {integrity: sha512-/g3B0mC+4x724v1TgtBlBtt2hPi/EWptsIAmXUx9Z2rvBYleQcsrmaOzd5LyL50jf/Soi83ZDJmw2+XqvH/EeA==}
     engines: {node: 20 || >=22}
+
+  glob@13.0.6:
+    resolution: {integrity: sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==}
+    engines: {node: 18 || 20 || >=22}
 
   global-agent@3.0.0:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
@@ -5715,6 +5837,10 @@ packages:
     resolution: {integrity: sha512-ESL2CrkS/2wTPfuend7Zhkzo2u0daGJ/A2VucJOgQ/C48S/zB8MMeMHSGKYpXhIjbPxfuezITkaBH1wqv00DDQ==}
     engines: {node: 20 || >=22}
 
+  lru-cache@11.3.5:
+    resolution: {integrity: sha512-NxVFwLAnrd9i7KUBxC4DrUhmgjzOs+1Qm50D3oF1/oL+r1NpZ4gA7xvG0/zJ8evR7zIKn4vLf7qTNduWFtCrRw==}
+    engines: {node: 20 || >=22}
+
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
@@ -6007,6 +6133,10 @@ packages:
     resolution: {integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==}
     engines: {node: '>=16 || 14 >=14.17'}
 
+  minipass@7.1.3:
+    resolution: {integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==}
+    engines: {node: '>=16 || 14 >=14.17'}
+
   minizlib@2.1.2:
     resolution: {integrity: sha512-bAxsR8BVfj60DWXHE3u30oHzfl4G7khkSuPW+qvpd7jFRHm7dLxOjUk1EHACJ/hxLY8phGJ0YhYHZo7jil7Qdg==}
     engines: {node: '>= 8'}
@@ -6257,6 +6387,10 @@ packages:
   path-scurry@2.0.1:
     resolution: {integrity: sha512-oWyT4gICAu+kaA7QWk/jvCHWarMKNs6pXOGWKDTr7cw4IGcUbW+PeTfbaQiLGheFRpjo6O9J0PmyMfQPjH71oA==}
     engines: {node: 20 || >=22}
+
+  path-scurry@2.0.2:
+    resolution: {integrity: sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==}
+    engines: {node: 18 || 20 || >=22}
 
   path-to-regexp@8.4.2:
     resolution: {integrity: sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA==}
@@ -6764,8 +6898,18 @@ packages:
     peerDependencies:
       seroval: ^1.0
 
+  seroval-plugins@1.5.2:
+    resolution: {integrity: sha512-qpY0Cl+fKYFn4GOf3cMiq6l72CpuVaawb6ILjubOQ+diJ54LfOWaSSPsaswN8DRPIPW4Yq+tE1k5aKd7ILyaFg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      seroval: ^1.0
+
   seroval@1.5.0:
     resolution: {integrity: sha512-OE4cvmJ1uSPrKorFIH9/w/Qwuvi/IMcGbv5RKgcJ/zjA/IohDLU6SVaxFN9FwajbP7nsX0dQqMDes1whk3y+yw==}
+    engines: {node: '>=10'}
+
+  seroval@1.5.2:
+    resolution: {integrity: sha512-xcRN39BdsnO9Tf+VzsE7b3JyTJASItIV1FVFewJKCFcW4s4haIKS3e6vj8PGB9qBwC7tnuOywQMdv5N4qkzi7Q==}
     engines: {node: '>=10'}
 
   set-blocking@2.0.0:
@@ -7178,6 +7322,10 @@ packages:
     resolution: {integrity: sha512-rvKSBiC5zqCCiDZ9kAOszZcDvdAHwwIKJG33Ykj43OKcWsnmcBRL09YTU4nOeHZ8Y2a7l1MgTd08SBe9A8Qj6A==}
     engines: {node: '>=18'}
 
+  ulid@2.4.0:
+    resolution: {integrity: sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==}
+    hasBin: true
+
   ultracite@7.1.5:
     resolution: {integrity: sha512-bT1Gr32b3tSUbN2fIl4ZpYc/wH+lZnurw6yqobXlfZEkq7+nNVRsoGJuXVhIu1sPo+BEoLfx/RA0ENMBOzMeyQ==}
     hasBin: true
@@ -7318,6 +7466,7 @@ packages:
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   verror@1.10.1:
@@ -10648,6 +10797,15 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
+  '@vidbee/downloader-core@file:packages/downloader-core(@opentelemetry/api@1.9.1)':
+    dependencies:
+      '@orpc/contract': 1.14.0(@opentelemetry/api@1.9.1)
+      '@vidbee/task-queue': link:packages/task-queue
+      yt-dlp-wrap-plus: 2.3.20
+      zod: 4.3.6
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+
   '@vitejs/plugin-react@5.0.4(vite@7.3.2(@types/node@22.18.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@babel/core': 7.28.4
@@ -10873,7 +11031,7 @@ snapshots:
 
   archiver-utils@2.1.0:
     dependencies:
-      glob: 13.0.3
+      glob: 13.0.6
       graceful-fs: 4.2.11
       lazystream: 1.0.1
       lodash.defaults: 4.2.0
@@ -10886,7 +11044,7 @@ snapshots:
 
   archiver-utils@3.0.4:
     dependencies:
-      glob: 13.0.3
+      glob: 13.0.6
       graceful-fs: 4.2.11
       lazystream: 1.0.1
       lodash.defaults: 4.2.0
@@ -10987,7 +11145,7 @@ snapshots:
 
   baseline-browser-mapping@2.8.18: {}
 
-  better-sqlite3@12.4.1:
+  better-sqlite3@12.9.0:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -11659,12 +11817,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.4.1):
+  drizzle-orm@0.45.2(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.9.0):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/better-sqlite3': 7.6.13
       '@types/pg': 8.15.6
-      better-sqlite3: 12.4.1
+      better-sqlite3: 12.9.0
 
   dunder-proto@1.0.1:
     dependencies:
@@ -11751,7 +11909,7 @@ snapshots:
       '@babel/core': 7.28.4
       '@babel/plugin-transform-arrow-functions': 7.27.1(@babel/core@7.28.4)
       cac: 6.7.14
-      esbuild: 0.25.11
+      esbuild: 0.27.3
       magic-string: 0.30.21
       picocolors: 1.1.1
       vite: 7.3.2(@types/node@22.18.12)(jiti@2.6.1)(lightningcss@1.31.1)(tsx@4.21.0)(yaml@2.8.3)
@@ -12119,6 +12277,9 @@ snapshots:
     dependencies:
       minipass: 3.3.6
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -12293,6 +12454,12 @@ snapshots:
       minimatch: 10.2.5
       minipass: 7.1.2
       path-scurry: 2.0.1
+
+  glob@13.0.6:
+    dependencies:
+      minimatch: 10.2.5
+      minipass: 7.1.3
+      path-scurry: 2.0.2
 
   global-agent@3.0.0:
     dependencies:
@@ -13012,6 +13179,8 @@ snapshots:
 
   lru-cache@11.2.6: {}
 
+  lru-cache@11.3.5: {}
+
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
@@ -13573,6 +13742,8 @@ snapshots:
 
   minipass@7.1.2: {}
 
+  minipass@7.1.3: {}
+
   minizlib@2.1.2:
     dependencies:
       minipass: 3.3.6
@@ -13869,6 +14040,11 @@ snapshots:
     dependencies:
       lru-cache: 11.2.6
       minipass: 7.1.2
+
+  path-scurry@2.0.2:
+    dependencies:
+      lru-cache: 11.3.5
+      minipass: 7.1.3
 
   path-to-regexp@8.4.2: {}
 
@@ -14442,7 +14618,13 @@ snapshots:
     dependencies:
       seroval: 1.5.0
 
+  seroval-plugins@1.5.2(seroval@1.5.2):
+    dependencies:
+      seroval: 1.5.2
+
   seroval@1.5.0: {}
+
+  seroval@1.5.2: {}
 
   set-blocking@2.0.0: {}
 
@@ -14565,8 +14747,8 @@ snapshots:
   solid-js@1.9.11:
     dependencies:
       csstype: 3.2.3
-      seroval: 1.5.0
-      seroval-plugins: 1.5.0(seroval@1.5.0)
+      seroval: 1.5.2
+      seroval-plugins: 1.5.2(seroval@1.5.2)
 
   sonic-boom@4.2.1:
     dependencies:
@@ -14847,6 +15029,8 @@ snapshots:
   uhyphen@0.2.0: {}
 
   uint8array-extras@1.5.0: {}
+
+  ulid@2.4.0: {}
 
   ultracite@7.1.5:
     dependencies:
