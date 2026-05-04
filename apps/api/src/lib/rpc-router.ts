@@ -3,10 +3,16 @@ import { randomUUID } from 'node:crypto'
 import { constants as fsConstants } from 'node:fs'
 import { access, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+
 import { implement, ORPCError } from '@orpc/server'
 import { downloaderContract } from '@vidbee/downloader-core'
-import { downloaderCore, historyStore } from './downloader'
+import type { DownloadTask } from '@vidbee/downloader-core'
+import type { Task, TaskStatus } from '@vidbee/task-queue'
+
+import { projectTaskForApi } from './projection'
+import { taskQueue, taskQueueExecutor } from './downloader'
 import { webSettingsStore } from './web-settings-store'
+import { fetchPlaylistInfo, fetchVideoInfo } from './yt-dlp-info'
 
 const os = implement(downloaderContract)
 const WEB_SETTINGS_FILES_DIR = path.resolve(process.cwd(), '.data', 'web-settings-files')
@@ -15,11 +21,19 @@ const MANAGED_SETTINGS_FILE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000
 const SAFE_FILE_NAME_REGEX = /[^A-Za-z0-9._-]+/g
 type ManagedSettingsFileKind = 'cookies' | 'config'
 
+const TERMINAL_TASK_STATUSES = new Set<TaskStatus>(['completed', 'failed', 'cancelled'])
+const NON_TERMINAL_TASK_STATUSES = new Set<TaskStatus>([
+  'queued',
+  'running',
+  'processing',
+  'paused',
+  'retry-scheduled'
+])
+
 const toErrorMessage = (error: unknown, fallbackMessage: string): string => {
   if (error instanceof Error && error.message.trim().length > 0) {
     return error.message
   }
-
   return fallbackMessage
 }
 
@@ -29,14 +43,8 @@ const runProcess = (command: string, args: string[]): Promise<boolean> =>
       stdio: 'ignore',
       windowsHide: true
     })
-
-    child.on('error', () => {
-      resolve(false)
-    })
-
-    child.on('close', (code) => {
-      resolve(code === 0)
-    })
+    child.on('error', () => resolve(false))
+    child.on('close', (code) => resolve(code === 0))
   })
 
 const pathExists = async (targetPath: string): Promise<boolean> => {
@@ -52,31 +60,18 @@ const isPathWithinBase = (basePath: string, targetPath: string): boolean => {
   const normalizedBase = path.resolve(basePath)
   const normalizedTarget = path.resolve(targetPath)
   const relativePath = path.relative(normalizedBase, normalizedTarget)
-
   return relativePath !== '' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath)
 }
 
 const openFileWithSystem = async (targetPath: string): Promise<boolean> => {
-  if (process.platform === 'darwin') {
-    return runProcess('open', [targetPath])
-  }
-
-  if (process.platform === 'win32') {
-    return runProcess('cmd', ['/c', 'start', '', targetPath])
-  }
-
+  if (process.platform === 'darwin') return runProcess('open', [targetPath])
+  if (process.platform === 'win32') return runProcess('cmd', ['/c', 'start', '', targetPath])
   return runProcess('xdg-open', [targetPath])
 }
 
 const openFileLocationWithSystem = async (targetPath: string): Promise<boolean> => {
-  if (process.platform === 'darwin') {
-    return runProcess('open', ['-R', targetPath])
-  }
-
-  if (process.platform === 'win32') {
-    return runProcess('explorer', [`/select,${targetPath}`])
-  }
-
+  if (process.platform === 'darwin') return runProcess('open', ['-R', targetPath])
+  if (process.platform === 'win32') return runProcess('explorer', [`/select,${targetPath}`])
   return runProcess('xdg-open', [path.dirname(targetPath)])
 }
 
@@ -85,7 +80,6 @@ const copyFileToClipboardWithSystem = async (targetPath: string): Promise<boolea
     const escapedPath = targetPath.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
     return runProcess('osascript', ['-e', `set the clipboard to (POSIX file "${escapedPath}")`])
   }
-
   if (process.platform === 'win32') {
     const escapedPath = targetPath.replace(/'/g, "''")
     return runProcess('powershell', [
@@ -94,7 +88,6 @@ const copyFileToClipboardWithSystem = async (targetPath: string): Promise<boolea
       `Set-Clipboard -Path '${escapedPath}'`
     ])
   }
-
   return false
 }
 
@@ -135,11 +128,7 @@ const sanitizeUploadedFileName = (fileName: string, fallbackFileName: string): s
     .replace(SAFE_FILE_NAME_REGEX, '-')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
-
-  if (!normalized) {
-    return fallbackFileName
-  }
-
+  if (!normalized) return fallbackFileName
   return normalized.slice(0, 120)
 }
 
@@ -170,16 +159,10 @@ const resolveManagedSettingsFilePath = (
   kind: ManagedSettingsFileKind
 ): string | null => {
   const trimmedPath = rawPath.trim()
-  if (!trimmedPath) {
-    return null
-  }
-
+  if (!trimmedPath) return null
   const resolvedPath = path.resolve(trimmedPath)
   const managedDirectory = path.join(WEB_SETTINGS_FILES_DIR, kind)
-  if (!isPathWithinBase(managedDirectory, resolvedPath)) {
-    return null
-  }
-
+  if (!isPathWithinBase(managedDirectory, resolvedPath)) return null
   return resolvedPath
 }
 
@@ -189,38 +172,24 @@ const pruneManagedSettingsFiles = async (
 ): Promise<void> => {
   const managedDirectory = path.join(WEB_SETTINGS_FILES_DIR, kind)
   const keepPaths = new Set<string>()
-
   for (const rawPath of referencedPaths) {
     const managedPath = resolveManagedSettingsFilePath(rawPath, kind)
-    if (managedPath) {
-      keepPaths.add(managedPath)
-    }
+    if (managedPath) keepPaths.add(managedPath)
   }
-
   let entries: { isFile: () => boolean; name: string }[] = []
   try {
     entries = await readdir(managedDirectory, { withFileTypes: true })
   } catch {
     return
   }
-
   const now = Date.now()
   for (const entry of entries) {
-    if (!entry.isFile()) {
-      continue
-    }
-
+    if (!entry.isFile()) continue
     const candidatePath = path.resolve(path.join(managedDirectory, entry.name))
-    if (keepPaths.has(candidatePath)) {
-      continue
-    }
-
+    if (keepPaths.has(candidatePath)) continue
     try {
       const candidateInfo = await stat(candidatePath)
-      if (now - candidateInfo.mtimeMs < MANAGED_SETTINGS_FILE_RETENTION_MS) {
-        continue
-      }
-
+      if (now - candidateInfo.mtimeMs < MANAGED_SETTINGS_FILE_RETENTION_MS) continue
       await rm(candidatePath, { force: true })
     } catch {
       // Ignore cleanup errors to keep upload and settings updates resilient.
@@ -243,19 +212,39 @@ const triggerManagedSettingsFilePrune = (
   })()
 }
 
+const PLAYLIST_GROUP_PREFIX = 'playlist_group_'
+
+const projectTask = (task: Readonly<Task>): DownloadTask => projectTaskForApi(task)
+
+const listTasksByStatuses = (statuses: ReadonlySet<TaskStatus>): DownloadTask[] => {
+  const tasks: Task[] = []
+  let cursor: string | null = null
+  do {
+    const page = taskQueue.list({ limit: 200, cursor })
+    for (const t of page.tasks) {
+      if (statuses.has(t.status)) tasks.push(t)
+    }
+    cursor = page.nextCursor
+  } while (cursor)
+  return tasks
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map(projectTask)
+}
+
 export const rpcRouter = os.router({
   status: os.status.handler(() => {
-    const status = downloaderCore.getStatus()
+    const stats = taskQueue.stats()
     return {
       ok: true,
       version: '1.0.0',
-      active: status.active,
-      pending: status.pending
+      active: stats.running,
+      pending: stats.queued
     }
   }),
+
   videoInfo: os.videoInfo.handler(async ({ input }) => {
     try {
-      const video = await downloaderCore.getVideoInfo(input.url, input.settings)
+      const video = await fetchVideoInfo(input.url, input.settings)
       return { video }
     } catch (error) {
       throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -263,10 +252,11 @@ export const rpcRouter = os.router({
       })
     }
   }),
+
   playlist: {
     info: os.playlist.info.handler(async ({ input }) => {
       try {
-        const playlist = await downloaderCore.getPlaylistInfo(input.url, input.settings)
+        const playlist = await fetchPlaylistInfo(input.url, input.settings)
         return { playlist }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -276,8 +266,93 @@ export const rpcRouter = os.router({
     }),
     download: os.playlist.download.handler(async ({ input }) => {
       try {
-        const result = await downloaderCore.startPlaylistDownload(input)
-        return { result }
+        const playlist = await fetchPlaylistInfo(input.url, input.settings)
+        const groupId = `${PLAYLIST_GROUP_PREFIX}${Date.now()}_${randomUUID().slice(0, 8)}`
+
+        if (playlist.entryCount === 0) {
+          return {
+            result: {
+              groupId,
+              playlistId: playlist.id,
+              playlistTitle: playlist.title,
+              type: input.type,
+              totalCount: 0,
+              startIndex: 0,
+              endIndex: 0,
+              entries: []
+            }
+          }
+        }
+
+        let selected = playlist.entries
+        if (input.entryIds && input.entryIds.length > 0) {
+          const ids = new Set(input.entryIds)
+          selected = playlist.entries.filter((e) => ids.has(e.id))
+        } else {
+          const requestedStart = Math.max((input.startIndex ?? 1) - 1, 0)
+          const requestedEnd = input.endIndex
+            ? Math.min(input.endIndex - 1, playlist.entryCount - 1)
+            : playlist.entryCount - 1
+          const rangeStart = Math.min(requestedStart, requestedEnd)
+          const rangeEnd = Math.max(requestedStart, requestedEnd)
+          selected = playlist.entries.slice(rangeStart, rangeEnd + 1)
+        }
+
+        const created: Array<{
+          downloadId: string
+          entryId: string
+          title: string
+          url: string
+          index: number
+        }> = []
+
+        for (const entry of selected) {
+          const result = await taskQueue.add({
+            input: {
+              url: entry.url,
+              kind: input.type === 'audio' ? 'audio' : 'video',
+              title: entry.title,
+              thumbnail: entry.thumbnail,
+              playlistId: groupId,
+              playlistIndex: entry.index,
+              options: {
+                type: input.type,
+                format: input.format,
+                audioFormat: input.audioFormat,
+                audioFormatIds: input.audioFormatIds,
+                customDownloadPath: input.customDownloadPath,
+                customFilenameTemplate: input.customFilenameTemplate,
+                containerFormat: input.containerFormat,
+                settings: input.settings,
+                title: entry.title,
+                thumbnail: entry.thumbnail,
+                playlistTitle: playlist.title,
+                playlistSize: selected.length
+              }
+            },
+            groupKey: `playlist:${groupId}`
+          })
+          created.push({
+            downloadId: result.id,
+            entryId: entry.id,
+            title: entry.title,
+            url: entry.url,
+            index: entry.index
+          })
+        }
+
+        return {
+          result: {
+            groupId,
+            playlistId: playlist.id,
+            playlistTitle: playlist.title,
+            type: input.type,
+            totalCount: selected.length,
+            startIndex: selected[0]?.index ?? 0,
+            endIndex: selected.at(-1)?.index ?? 0,
+            entries: created
+          }
+        }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: toErrorMessage(error, 'Failed to start playlist download.')
@@ -285,11 +360,47 @@ export const rpcRouter = os.router({
       }
     })
   },
+
   downloads: {
     create: os.downloads.create.handler(async ({ input }) => {
       try {
-        const download = await downloaderCore.createDownload(input)
-        return { download }
+        const result = await taskQueue.add({
+          input: {
+            url: input.url,
+            kind: input.type === 'audio' ? 'audio' : 'video',
+            title: input.title,
+            thumbnail: input.thumbnail,
+            playlistId: input.playlistId,
+            playlistIndex: input.playlistIndex,
+            options: {
+              type: input.type,
+              format: input.format,
+              audioFormat: input.audioFormat,
+              audioFormatIds: input.audioFormatIds,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              customDownloadPath: input.customDownloadPath,
+              customFilenameTemplate: input.customFilenameTemplate,
+              containerFormat: input.containerFormat,
+              settings: input.settings,
+              title: input.title,
+              thumbnail: input.thumbnail,
+              description: input.description,
+              channel: input.channel,
+              uploader: input.uploader,
+              viewCount: input.viewCount,
+              tags: input.tags ? [...input.tags] : undefined,
+              duration: input.duration,
+              playlistTitle: input.playlistTitle,
+              playlistSize: input.playlistSize
+            }
+          }
+        })
+        const created = taskQueue.get(result.id)
+        if (!created) {
+          throw new Error('Failed to read back created task.')
+        }
+        return { download: projectTask(created) }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: toErrorMessage(error, 'Failed to create download.')
@@ -297,14 +408,14 @@ export const rpcRouter = os.router({
       }
     }),
     list: os.downloads.list.handler(() => {
-      return {
-        downloads: downloaderCore.listDownloads()
-      }
+      return { downloads: listTasksByStatuses(NON_TERMINAL_TASK_STATUSES) }
     }),
     cancel: os.downloads.cancel.handler(async ({ input }) => {
       try {
-        const cancelled = await downloaderCore.cancelDownload(input.id)
-        return { cancelled }
+        const task = taskQueue.get(input.id)
+        if (!task) return { cancelled: false }
+        await taskQueue.cancel(input.id)
+        return { cancelled: true }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
           message: toErrorMessage(error, 'Failed to cancel download.')
@@ -312,35 +423,50 @@ export const rpcRouter = os.router({
       }
     })
   },
+
   history: {
     list: os.history.list.handler(() => {
-      return {
-        history: historyStore.list()
-      }
+      return { history: listTasksByStatuses(TERMINAL_TASK_STATUSES) }
     }),
-    removeItems: os.history.removeItems.handler(({ input }) => {
-      try {
-        const removed = historyStore.removeItems(input.ids)
-        downloaderCore.removeHistoryItems(input.ids)
-        return { removed }
-      } catch (error) {
-        throw new ORPCError('INTERNAL_SERVER_ERROR', {
-          message: toErrorMessage(error, 'Failed to remove history items.')
-        })
+    removeItems: os.history.removeItems.handler(async ({ input }) => {
+      let removed = 0
+      for (const rawId of input.ids) {
+        const id = rawId.trim()
+        if (!id) continue
+        const task = taskQueue.get(id)
+        if (!task) continue
+        try {
+          await taskQueue.removeFromHistory(id)
+          removed += 1
+        } catch {
+          // Non-terminal tasks throw; skip them quietly to match legacy behavior.
+        }
       }
+      return { removed }
     }),
-    removeByPlaylist: os.history.removeByPlaylist.handler(({ input }) => {
-      try {
-        const removed = historyStore.removeByPlaylist(input.playlistId)
-        downloaderCore.removeHistoryByPlaylist(input.playlistId)
-        return { removed }
-      } catch (error) {
-        throw new ORPCError('INTERNAL_SERVER_ERROR', {
-          message: toErrorMessage(error, 'Failed to remove playlist history.')
-        })
-      }
+    removeByPlaylist: os.history.removeByPlaylist.handler(async ({ input }) => {
+      const playlistId = input.playlistId.trim()
+      if (!playlistId) return { removed: 0 }
+      let removed = 0
+      let cursor: string | null = null
+      do {
+        const page = taskQueue.list({ limit: 200, cursor })
+        for (const t of page.tasks) {
+          if (t.input.playlistId === playlistId && TERMINAL_TASK_STATUSES.has(t.status)) {
+            try {
+              await taskQueue.removeFromHistory(t.id)
+              removed += 1
+            } catch {
+              /* skip */
+            }
+          }
+        }
+        cursor = page.nextCursor
+      } while (cursor)
+      return { removed }
     })
   },
+
   files: {
     exists: os.files.exists.handler(async ({ input }) => {
       try {
@@ -365,10 +491,7 @@ export const rpcRouter = os.router({
       try {
         const resolvedPath = path.resolve(input.path)
         const exists = await pathExists(resolvedPath)
-        if (!exists) {
-          return { success: false }
-        }
-
+        if (!exists) return { success: false }
         return { success: await openFileWithSystem(resolvedPath) }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -380,10 +503,7 @@ export const rpcRouter = os.router({
       try {
         const resolvedPath = path.resolve(input.path)
         const exists = await pathExists(resolvedPath)
-        if (!exists) {
-          return { success: false }
-        }
-
+        if (!exists) return { success: false }
         return { success: await openFileLocationWithSystem(resolvedPath) }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -395,10 +515,7 @@ export const rpcRouter = os.router({
       try {
         const resolvedPath = path.resolve(input.path)
         const exists = await pathExists(resolvedPath)
-        if (!exists) {
-          return { success: false }
-        }
-
+        if (!exists) return { success: false }
         return { success: await copyFileToClipboardWithSystem(resolvedPath) }
       } catch (error) {
         throw new ORPCError('INTERNAL_SERVER_ERROR', {
@@ -415,19 +532,14 @@ export const rpcRouter = os.router({
             message: 'Deleting files is disabled until a download path is configured.'
           })
         }
-
         const resolvedPath = path.resolve(input.path)
         if (!isPathWithinBase(managedDownloadPath, resolvedPath)) {
           throw new ORPCError('FORBIDDEN', {
             message: 'Refusing to delete files outside the managed download directory.'
           })
         }
-
         const exists = await pathExists(resolvedPath)
-        if (!exists) {
-          return { success: false }
-        }
-
+        if (!exists) return { success: false }
         await rm(resolvedPath)
         return { success: true }
       } catch (error) {
@@ -448,6 +560,7 @@ export const rpcRouter = os.router({
       }
     })
   },
+
   settings: {
     get: os.settings.get.handler(async () => {
       try {
@@ -471,3 +584,8 @@ export const rpcRouter = os.router({
     })
   }
 })
+
+// `taskQueueExecutor` is intentionally re-exported from this module so the
+// integration test (packages/task-queue/__integration__/three-host-equivalence)
+// can introspect host wiring without reaching into apps/api directly.
+export { taskQueueExecutor }

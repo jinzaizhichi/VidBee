@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "migrate-history": "tsx scripts/migrate-history.ts",
+    "before-start": "tsx scripts/migrate-history.ts && tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "check": "ultracite check && pnpm run typecheck"
   },
@@ -15,6 +17,8 @@
     "@orpc/zod": "^1.13.5",
     "@vidbee/db": "workspace:*",
     "@vidbee/downloader-core": "workspace:*",
+    "@vidbee/subscriptions-core": "workspace:*",
+    "@vidbee/task-queue": "workspace:*",
     "better-sqlite3": "^12.4.1",
     "drizzle-orm": "^0.44.7",
     "fastify": "^5.7.4"

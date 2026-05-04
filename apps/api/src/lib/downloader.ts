@@ -1,35 +1,19 @@
-import path from 'node:path'
-import type { DownloadTask } from '@vidbee/downloader-core'
-import { DownloaderCore } from '@vidbee/downloader-core'
-import { HistoryStore } from './history-store'
-
-const defaultDownloadDir =
-  process.env.VIDBEE_DOWNLOAD_DIR?.trim() || process.env.DOWNLOAD_DIR?.trim() || undefined
-
-const maxConcurrentValue = process.env.VIDBEE_MAX_CONCURRENT?.trim()
-const parsedMaxConcurrent = maxConcurrentValue ? Number(maxConcurrentValue) : Number.NaN
-const maxConcurrent =
-  Number.isFinite(parsedMaxConcurrent) && parsedMaxConcurrent > 0 ? parsedMaxConcurrent : undefined
-
-const configuredHistoryStorePath = process.env.VIDBEE_HISTORY_STORE_PATH?.trim()
-const historyStorePath = configuredHistoryStorePath
-  ? configuredHistoryStorePath
-  : defaultDownloadDir
-    ? path.join(defaultDownloadDir, '.vidbee', 'vidbee.db')
-    : path.join(process.cwd(), '.vidbee', 'vidbee.db')
-
-export const historyStore = new HistoryStore(historyStorePath)
-
-export const downloaderCore = new DownloaderCore({
-  downloadDir: defaultDownloadDir,
-  maxConcurrent
-})
-
-const terminalStatuses = new Set<DownloadTask['status']>(['completed', 'error', 'cancelled'])
-
-downloaderCore.on('task-updated', (task: DownloadTask) => {
-  if (!terminalStatuses.has(task.status)) {
-    return
-  }
-  historyStore.save(task)
-})
+/**
+ * Public surface for the rpc-router and server bootstrap. Re-exports the
+ * TaskQueueAPI singleton (and lifecycle hooks) that replaces the previous
+ * `DownloaderCore` instance after NEX-131.
+ *
+ * The legacy `DownloaderCore` class is no longer instantiated by the API;
+ * routes that need yt-dlp metadata (videoInfo / playlist.info) use the
+ * stateless `fetchVideoInfo` / `fetchPlaylistInfo` helpers in
+ * `./yt-dlp-info.ts`.
+ */
+export {
+  apiDefaultDownloadDir as downloadDir,
+  apiMaxConcurrent as maxConcurrent,
+  isTaskQueuePersistent,
+  startTaskQueue,
+  stopTaskQueue,
+  taskQueue,
+  taskQueueExecutor
+} from './task-queue-host'

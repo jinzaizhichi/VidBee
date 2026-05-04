@@ -6,11 +6,13 @@ import { OpenAPIHandler } from '@orpc/openapi/fastify'
 import { OpenAPIReferencePlugin } from '@orpc/openapi/plugins'
 import { RPCHandler } from '@orpc/server/fastify'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
-import type { DownloadTask } from '@vidbee/downloader-core'
 import Fastify from 'fastify'
-import { downloaderCore } from './lib/downloader'
+import { startTaskQueue, stopTaskQueue, taskQueue } from './lib/downloader'
+import { projectTaskForApi } from './lib/projection'
 import { rpcRouter } from './lib/rpc-router'
 import { SseHub } from './lib/sse'
+import { startApiSubscriptions, stopApiSubscriptions } from './lib/subscriptions-host'
+import { subscriptionsRouter } from './lib/subscriptions-router'
 
 const MAX_PROXY_IMAGE_BYTES = 10 * 1024 * 1024
 const MAX_PROXY_REDIRECTS = 5
@@ -104,7 +106,8 @@ const parseRemoteImageUrl = (value: string): URL | null => {
 }
 
 export const createApiServer = async () => {
-  await downloaderCore.initialize()
+  await startTaskQueue()
+  await startApiSubscriptions()
   const isDev = process.env.NODE_ENV !== 'production'
 
   const fastify = Fastify({
@@ -118,6 +121,7 @@ export const createApiServer = async () => {
   })
 
   const rpcHandler = new RPCHandler(rpcRouter)
+  const subscriptionsRpcHandler = new RPCHandler(subscriptionsRouter)
   const openApiHandler = new OpenAPIHandler(rpcRouter, {
     plugins: [
       new OpenAPIReferencePlugin({
@@ -139,11 +143,32 @@ export const createApiServer = async () => {
 
   const sseHub = new SseHub()
 
-  downloaderCore.on('task-updated', (task: DownloadTask) => {
-    sseHub.publish('task-updated', { task })
-  })
-  downloaderCore.on('queue-updated', (downloads: DownloadTask[]) => {
+  // Bridge TaskQueue events → /events SSE. The web client speaks the legacy
+  // task-updated / queue-updated payload shape; we project from internal
+  // Task → DownloadTask using the shared projection so both Desktop IPC and
+  // API SSE present the same fields for the same task.
+  const NON_TERMINAL = new Set(['queued', 'running', 'processing', 'paused', 'retry-scheduled'])
+  const publishQueueUpdated = (): void => {
+    const downloads = taskQueue
+      .list({ limit: 200 })
+      .tasks.filter((t) => NON_TERMINAL.has(t.status))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(projectTaskForApi)
     sseHub.publish('queue-updated', { downloads })
+  }
+
+  taskQueue.on('snapshot-changed', (e) => {
+    sseHub.publish('task-updated', { task: projectTaskForApi(e.task) })
+    publishQueueUpdated()
+  })
+  taskQueue.on('progress', (e) => {
+    const t = taskQueue.get(e.taskId)
+    if (t) sseHub.publish('task-updated', { task: projectTaskForApi(t) })
+  })
+  taskQueue.on('transition', (e) => {
+    if (e.to === 'queued' || e.to === 'cancelled' || e.to === 'completed' || e.to === 'failed') {
+      publishQueueUpdated()
+    }
   })
 
   fastify.get('/health', async () => {
@@ -285,6 +310,16 @@ export const createApiServer = async () => {
     })
   })
 
+  // Subscriptions live behind their own oRPC handler so the contract surface
+  // mirrors `subscriptionContract` 1:1 (NEX-132). The match runs before the
+  // generic `/rpc/*` handler because Fastify applies the most-specific route
+  // wins rule for `/rpc/subscriptions/*`.
+  fastify.all('/rpc/subscriptions/*', async (request, reply) => {
+    await subscriptionsRpcHandler.handle(request, reply, {
+      prefix: '/rpc/subscriptions'
+    })
+  })
+
   fastify.all('/rpc/*', async (request, reply) => {
     await rpcHandler.handle(request, reply, {
       prefix: '/rpc'
@@ -305,6 +340,8 @@ export const createApiServer = async () => {
 
   fastify.addHook('onClose', async () => {
     sseHub.closeAll()
+    await stopApiSubscriptions()
+    await stopTaskQueue()
   })
 
   return fastify
