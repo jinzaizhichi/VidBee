@@ -20,6 +20,38 @@ export interface DownloadProgress {
   total?: string
 }
 
+/**
+ * NEX-131 task-queue projection extras carried alongside legacy fields.
+ * Optional everywhere so legacy clients don't have to know about the
+ * task-queue at all; renderer/web client opt in by checking these fields.
+ */
+export type TaskQueueInternalStatus =
+  | 'queued'
+  | 'running'
+  | 'processing'
+  | 'paused'
+  | 'retry-scheduled'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+
+export type TaskQueueSubStatus = 'queued' | 'paused' | 'retry-scheduled'
+
+export type TaskQueueErrorCategory =
+  | 'http-429'
+  | 'auth-required'
+  | 'geo-blocked'
+  | 'not-found'
+  | 'disk-full'
+  | 'permission-denied'
+  | 'binary-missing'
+  | 'ffmpeg'
+  | 'network-transient'
+  | 'stalled'
+  | 'cancelled-by-user'
+  | 'output-missing'
+  | 'unknown'
+
 export interface DownloadTask {
   id: string
   url: string
@@ -49,6 +81,14 @@ export interface DownloadTask {
   playlistSize?: number
   progress?: DownloadProgress
   error?: string
+  internalStatus?: TaskQueueInternalStatus
+  subStatus?: TaskQueueSubStatus
+  statusReason?: string | null
+  errorCategory?: TaskQueueErrorCategory
+  uiMessageKey?: string
+  nextRetryAt?: number
+  attempt?: number
+  maxAttempts?: number
 }
 
 export interface DownloadRuntimeSettings {

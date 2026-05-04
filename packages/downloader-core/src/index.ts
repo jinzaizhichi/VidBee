@@ -5,6 +5,8 @@ export {
 } from './browser-cookies-setting'
 export { downloaderContract } from './contract'
 export { DownloaderCore } from './downloader-core'
+export { YtDlpExecutor } from './yt-dlp-executor'
+export type { YtDlpExecutorOptions, YtDlpTaskOptions } from './yt-dlp-executor'
 export { WebAppSettingsSchema } from './schemas'
 export type {
   OneClickContainerOption,

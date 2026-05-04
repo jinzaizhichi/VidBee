@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@orpc/contract": "^1.13.5",
+    "@vidbee/task-queue": "workspace:*",
     "yt-dlp-wrap-plus": "^2.3.20",
     "zod": "^4.1.11"
   },

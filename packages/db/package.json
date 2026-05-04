@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./history": "./src/history.ts"
+    "./history": "./src/history.ts",
+    "./task-queue": "./src/task-queue.ts",
+    "./subscriptions": "./src/subscriptions.ts"
   },
   "types": "./src/history.ts",
   "scripts": {

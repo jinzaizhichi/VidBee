@@ -18,6 +18,37 @@ export const DownloadProgressSchema = z.object({
   total: z.string().optional()
 })
 
+// NEX-131: extended with optional projection fields produced by
+// @vidbee/task-queue/projection. Existing fields are unchanged so legacy
+// web clients keep working; new clients that opt-in can branch on
+// internalStatus / subStatus / nextRetryAt / errorCategory.
+const TaskQueueInternalStatusSchema = z.enum([
+  'queued',
+  'running',
+  'processing',
+  'paused',
+  'retry-scheduled',
+  'completed',
+  'failed',
+  'cancelled'
+])
+const TaskQueueSubStatusSchema = z.enum(['queued', 'paused', 'retry-scheduled'])
+const TaskQueueErrorCategorySchema = z.enum([
+  'http-429',
+  'auth-required',
+  'geo-blocked',
+  'not-found',
+  'disk-full',
+  'permission-denied',
+  'binary-missing',
+  'ffmpeg',
+  'network-transient',
+  'stalled',
+  'cancelled-by-user',
+  'output-missing',
+  'unknown'
+])
+
 export const DownloadTaskSchema = z.object({
   id: z.string(),
   url: z.url(),
@@ -46,7 +77,16 @@ export const DownloadTaskSchema = z.object({
   playlistIndex: z.number().optional(),
   playlistSize: z.number().optional(),
   progress: DownloadProgressSchema.optional(),
-  error: z.string().optional()
+  error: z.string().optional(),
+  // ── NEX-131 projection extras ──
+  internalStatus: TaskQueueInternalStatusSchema.optional(),
+  subStatus: TaskQueueSubStatusSchema.optional(),
+  statusReason: z.string().nullable().optional(),
+  errorCategory: TaskQueueErrorCategorySchema.optional(),
+  uiMessageKey: z.string().optional(),
+  nextRetryAt: z.number().optional(),
+  attempt: z.number().int().nonnegative().optional(),
+  maxAttempts: z.number().int().nonnegative().optional()
 })
 
 export const DownloadRuntimeSettingsSchema = z.object({
